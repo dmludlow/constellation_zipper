@@ -11,10 +11,9 @@ class Simulation:
     duration: float                            # Total duration of the simulation in seconds
     timeVector: np.ndarray                     # Array of time steps for the simulation
     constellation: Constellation               # Constellation of satellites in the simulation
-    #telemetry
+    telemetry: dict                            # Dictionary to store telemetry data for each satellite
 
     
-    #TODO       example below from chat
     def __init__(self, constellation, duration_sec, dt):
         self.constellation = constellation
         self.duration = duration_sec
@@ -26,14 +25,9 @@ class Simulation:
         for sat in self.constellation.satellites:
             self.telemetry[sat.id] = {
                 'time': [],
-                'r': [],       # Will hold Nx3 arrays
-                'v': [],       # Will hold Nx3 arrays
-                'q': [],       # Will hold Nx4 arrays
-                'w': [],       # Will hold Nx3 arrays
-                'u_wheel': [], # Actuator torque commands
-                'f_thresh':[], # Actuator thrust forces
-                'nadir_err': [],
-                'gimbal_err': []
+                'r': [],                # Will hold Nx3 arrays
+                'v': [],                # Will hold Nx3 arrays
+                'applied_thrust': [],   # Will hold Nx3 arrays
             }
     
 
@@ -46,16 +40,11 @@ class Simulation:
             sat.step(self.dt)
 
             # Record telemetry
-            controlForce, controlTorque = sat.get_control_inputs()
+            controlForce = sat.get_control_inputs()
             self.telemetry[sat.id]['time'].append(sat.time)
             self.telemetry[sat.id]['r'].append(sat.positionECI.copy())
             self.telemetry[sat.id]['v'].append(sat.velocityECI.copy())
-            self.telemetry[sat.id]['q'].append(sat.attitude.copy())
-            self.telemetry[sat.id]['w'].append(sat.rollRates.copy())
-            self.telemetry[sat.id]['u_wheel'].append(controlTorque.copy())
-            self.telemetry[sat.id]['f_thresh'].append(controlForce.copy())
-            self.telemetry[sat.id]['nadir_err'].append(0.0)
-            self.telemetry[sat.id]['gimbal_err'].append(0.0)
+            self.telemetry[sat.id]['applied_thrust'].append(controlForce.copy())
 
     def run(self):
         """

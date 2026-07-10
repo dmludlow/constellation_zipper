@@ -1,6 +1,6 @@
 from typing import TYPE_CHECKING
 import numpy as np
-import src.config as config
+import src.simulation.config as config
 
 if TYPE_CHECKING:
     from src.vehicle.satellite import Satellite
@@ -34,25 +34,6 @@ def generate_orbit(altitude: float, degrees_long: float) -> tuple[np.ndarray, np
 
     return pos_eci, vel_eci
 
-
-# TODO verify this works
-def get_b_field(position_eci: np.ndarray) -> np.ndarray:
-    """
-    Returns Earth's magnetic field vector B (in Teslas) at a given position
-    using a simplified dipole model.
-    """
-    r_norm = np.linalg.norm(position_eci)
-    if r_norm == 0:
-        return np.zeros(3)
-
-    dipole_axis = np.array([0.0, 0.0, 1.0])  # Simplified dipole axis
-    m_vector = dipole_axis * config.EARTH_MAGNETIC_DIPOLE_MOMENT
-
-    mu0_over_4pi = 1e-7
-    dot_product = np.dot(m_vector, position_eci)
-
-    B = mu0_over_4pi * (3.0 * dot_product * position_eci / (r_norm**5) - m_vector / (r_norm**3))
-    return B
 
 
 def orbit_derivatives(pos: np.ndarray, vel: np.ndarray, mass: float) -> tuple[np.ndarray, np.ndarray]:

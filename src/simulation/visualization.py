@@ -41,7 +41,7 @@ def see_globe(simulation):
     r_earth = 6378137.0  # Earth equatorial radius
     # Try to import from config, fallback if not possible
     try:
-        import src.config as config
+        import src.simulation.config as config
         r_earth = config.EARTH_EQUATORIAL_RADIUS
     except Exception:
         pass
