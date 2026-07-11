@@ -41,7 +41,7 @@ def see_globe(simulation):
     r_earth = 6378137.0  # Earth equatorial radius
     # Try to import from config, fallback if not possible
     try:
-        import src.simulation.config as config
+        import src.config as config
         r_earth = config.EARTH_EQUATORIAL_RADIUS
     except Exception:
         pass
@@ -106,8 +106,10 @@ def see_globe(simulation):
             img.load()
             frames.append(img)
             
-        # Save to highest folder level (workspace directory)
-        output_path = os.path.join("/Users/danielludlow/Documents/Constellation-MPC", "orbits.gif")
+        # Ensure results directory exists and save orbits.gif there
+        results_dir = os.path.join("/Users/danielludlow/Documents/Constellation-MPC", "results")
+        os.makedirs(results_dir, exist_ok=True)
+        output_path = os.path.join(results_dir, "orbits.gif")
         
         # Save the frames as an animated GIF
         if frames:
@@ -123,3 +125,97 @@ def see_globe(simulation):
         # Clean up figure and temp directory
         plt.close(fig)
         shutil.rmtree(temp_dir)
+
+
+import csv
+
+def save_telemetry_to_csv(simulation, filename="telemetry.csv"):
+    """
+    Generates a CSV file of the simulation telemetry in the 'results' directory.
+    This method is general and will export whatever keys and dimensions are in the telemetry.
+    """
+    # Ensure results directory exists
+    workspace_dir = "/Users/danielludlow/Documents/Constellation-MPC"
+    results_dir = os.path.join(workspace_dir, "results")
+    os.makedirs(results_dir, exist_ok=True)
+    csv_path = os.path.join(results_dir, filename)
+
+    telemetry = simulation.telemetry
+    if not telemetry:
+        print("No telemetry data to save.")
+        return
+
+    # 1. Determine all columns dynamically
+    sample_sat_id = list(telemetry.keys())[0]
+    sample_sat_data = telemetry[sample_sat_id]
+    
+    headers = ["satellite_id"]
+    
+    # Ensure time is always the second column
+    has_time = 'time' in sample_sat_data
+    if has_time:
+        headers.append('time')
+        
+    for key, val in sample_sat_data.items():
+        if key == 'time':
+            continue
+        
+        # Safely check if the telemetry array has data
+        if val is not None and getattr(val, 'size', 0) > 0:
+            # If the array is 0-dimensional (scalar or dictionary wrapper), treat as scalar
+            if hasattr(val, 'ndim') and val.ndim == 0:
+                headers.append(key)
+                continue
+                
+            first_elem = val[0]
+            
+            # Check if the element is an array or vector (has dimensions)
+            is_vector = False
+            if isinstance(first_elem, (list, np.ndarray)):
+                is_vector = True
+            elif hasattr(first_elem, 'ndim') and first_elem.ndim > 0:
+                is_vector = True
+                
+            if is_vector:
+                num_elements = len(first_elem)
+                if num_elements == 3:
+                    for label in ['x', 'y', 'z']:
+                        headers.append(f"{key}_{label}")
+                else:
+                    for idx in range(num_elements):
+                        headers.append(f"{key}_{idx}")
+            else:
+                # Scalar data (like booleans or simple floats)
+                headers.append(key)
+
+    # 2. Write rows to CSV
+    with open(csv_path, mode='w', newline='') as csv_file:
+        writer = csv.writer(csv_file)
+        writer.writerow(headers)
+        
+        for sat_id, sat_data in telemetry.items():
+            n_steps = len(sat_data.get('time', []))
+            
+            for step_idx in range(n_steps):
+                row = [sat_id]
+                if has_time:
+                    row.append(sat_data['time'][step_idx])
+                    
+                for key, val in sat_data.items():
+                    if key == 'time':
+                        continue
+                    if len(val) > step_idx:
+                        # Handle 0-dimensional arrays safely
+                        if hasattr(val, 'ndim') and val.ndim == 0:
+                            row.append(val.item())
+                        else:
+                            elem = val[step_idx]
+                            if isinstance(elem, (list, np.ndarray)):
+                                row.extend(elem)
+                            else:
+                                row.append(elem)
+                    else:
+                        row.append(None)
+                writer.writerow(row)
+                
+    print(f"Telemetry saved successfully to {csv_path}")

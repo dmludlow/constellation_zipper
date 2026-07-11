@@ -1,6 +1,6 @@
 from typing import TYPE_CHECKING
 import numpy as np
-import src.simulation.config as config
+import src.config as config
 
 if TYPE_CHECKING:
     from src.vehicle.satellite import Satellite
@@ -36,7 +36,7 @@ def generate_orbit(altitude: float, degrees_long: float) -> tuple[np.ndarray, np
 
 
 
-def orbit_derivatives(pos: np.ndarray, vel: np.ndarray, mass: float) -> tuple[np.ndarray, np.ndarray]:
+def orbit_derivatives(pos: np.ndarray, vel: np.ndarray, mass: float, commandedForce: np.ndarray) -> tuple[np.ndarray, np.ndarray]:
     """
     Computes position and velocity derivatives (dr/dt, dv/dt) under 2-body and J2 gravity.
     """
@@ -57,17 +57,13 @@ def orbit_derivatives(pos: np.ndarray, vel: np.ndarray, mass: float) -> tuple[np
     ])
 
     # 3. Control acceleration from thrusters (stubbed for now)
-    # TODO: Add thruster capability here
-    # When active, you would rotate force from body to ECI frame and compute:
-    # accel_control = force_eci / mass
-    # would need to add mass decrease too 
-    accel_control = np.zeros(3)
+    accel_control = commandedForce / mass
 
     accel_total = accel_gravity + accel_j2 + accel_control
     return vel, accel_total
 
 
-def propogate_orbit(satellite: "Satellite", force: np.ndarray, dt: float):
+def propogate_orbit(satellite: "Satellite", commandedForce: np.ndarray, dt: float):
     """
     Propagates the orbit of the satellite using its current state and inputs,
     including J2 orbital perturbations.
@@ -77,10 +73,10 @@ def propogate_orbit(satellite: "Satellite", force: np.ndarray, dt: float):
     m = satellite.mass
 
     # RK4 Integration
-    k1_pos, k1_vel = orbit_derivatives(r, v, m)
-    k2_pos, k2_vel = orbit_derivatives(r + k1_pos * dt / 2.0, v + k1_vel * dt / 2.0, m)
-    k3_pos, k3_vel = orbit_derivatives(r + k2_pos * dt / 2.0, v + k2_vel * dt / 2.0, m)
-    k4_pos, k4_vel = orbit_derivatives(r + k3_pos * dt, v + k3_vel * dt, m)
+    k1_pos, k1_vel = orbit_derivatives(r, v, m, commandedForce)
+    k2_pos, k2_vel = orbit_derivatives(r + k1_pos * dt / 2.0, v + k1_vel * dt / 2.0, m, commandedForce)
+    k3_pos, k3_vel = orbit_derivatives(r + k2_pos * dt / 2.0, v + k2_vel * dt / 2.0, m, commandedForce)
+    k4_pos, k4_vel = orbit_derivatives(r + k3_pos * dt, v + k3_vel * dt, m, commandedForce)
 
     # Update satellite state variables
     satellite.positionECI = r + (dt / 6.0) * (k1_pos + 2.0 * k2_pos + 2.0 * k3_pos + k4_pos)

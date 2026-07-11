@@ -28,23 +28,38 @@ class Simulation:
                 'r': [],                # Will hold Nx3 arrays
                 'v': [],                # Will hold Nx3 arrays
                 'applied_thrust': [],   # Will hold Nx3 arrays
+                'leading_link_active': [],
+                'trailing_link_active': [],
             }
     
+
+    def log_telemetry(self):
+        """
+        Records the current physical state, connection status, and control inputs
+        for all satellites in the constellation.
+        """
+        for sat in self.constellation.satellites:
+            controlForce = sat.get_control_inputs()
+            self.telemetry[sat.id]['time'].append(sat.time)
+            self.telemetry[sat.id]['r'].append(sat.positionECI.copy())
+            self.telemetry[sat.id]['v'].append(sat.velocityECI.copy())
+            self.telemetry[sat.id]['applied_thrust'].append(controlForce.copy())
+            self.telemetry[sat.id]['leading_link_active'].append(sat.leadingConnection)
+            self.telemetry[sat.id]['trailing_link_active'].append(sat.trailingConnection)
 
     def step(self):
         """
         Advances simulation by one time step
         """
         for sat in self.constellation.satellites:
-            # Step each satellite
+            # Step each satellite (advances physics and time)
             sat.step(self.dt)
 
-            # Record telemetry
-            controlForce = sat.get_control_inputs()
-            self.telemetry[sat.id]['time'].append(sat.time)
-            self.telemetry[sat.id]['r'].append(sat.positionECI.copy())
-            self.telemetry[sat.id]['v'].append(sat.velocityECI.copy())
-            self.telemetry[sat.id]['applied_thrust'].append(controlForce.copy())
+        # Check crosslink connections for the new positions
+        self.constellation.check_crosslinks()
+
+        # Record new states in the telemetry database
+        self.log_telemetry()
 
     def run(self):
         """

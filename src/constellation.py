@@ -28,4 +28,26 @@ class Constellation:
             sat = Satellite(id = i, mass = 500, altitude = altitude, longitude = degrees_long)
 
             satellite.append(sat)
+
+        # Establish order
+        for i, sat in enumerate(satellite):
+            sat.leadingSat = satellite[(i + 1) % number_of_satellites]                                                                                                    
+            sat.trailingSat = satellite[(i - 1) % number_of_satellites] 
+
+        # Estbalish crosslinks
+        for sat in satellite:
+            leadingSatID = (sat.id + 1) % len(satellite)
+            trailingSatID = (sat.id - 1) % len(satellite)
+
+            sat.leadingConnection = sat.check_connection(sat.leadingSat)
+            sat.trailingConnection = sat.check_connection(sat.trailingSat)
+
         return satellite
+    
+    def check_crosslinks(self):
+        """
+        Checks the crosslink connections for all satellites in the constellation.
+        """
+        for sat in self.satellites:
+            sat.leadingConnection = sat.check_connection(sat.leadingSat)
+            sat.trailingConnection = sat.check_connection(sat.trailingSat)
