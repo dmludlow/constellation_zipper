@@ -3,6 +3,9 @@ from src.vehicle.thruster import Thruster
 import src.config as config
 from src.physics.orbit import step_sat_orbit, generate_orbit                                                                                                                          
 
+from typing import TYPE_CHECKING
+if TYPE_CHECKING:
+    from src.vehicle.crosslink import Crosslink
 import numpy as np
 
 class Satellite:
