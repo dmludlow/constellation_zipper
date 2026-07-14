@@ -63,22 +63,26 @@ def orbit_derivatives(pos: np.ndarray, vel: np.ndarray, mass: float, commandedFo
     return vel, accel_total
 
 
-def propogate_orbit(satellite: "Satellite", commandedForce: np.ndarray, dt: float):
+def propogate_orbit_rk4(pos: np.ndarray, vel: np.ndarray, mass: float, commandedForce: np.ndarray, dt: float) -> tuple[np.ndarray, np.ndarray]:
     """
-    Propagates the orbit of the satellite using its current state and inputs,
-    including J2 orbital perturbations.
+    Performs a single RK4 step to propagate a position and velocity vector under J2 and control thrust.
+    Returns the updated (position, velocity) tuple.
     """
-    r = satellite.positionECI
-    v = satellite.velocityECI
-    m = satellite.mass
+    k1_pos, k1_vel = orbit_derivatives(pos, vel, mass, commandedForce)
+    k2_pos, k2_vel = orbit_derivatives(pos + k1_pos * dt / 2.0, vel + k1_vel * dt / 2.0, mass, commandedForce)
+    k3_pos, k3_vel = orbit_derivatives(pos + k2_pos * dt / 2.0, vel + k2_vel * dt / 2.0, mass, commandedForce)
+    k4_pos, k4_vel = orbit_derivatives(pos + k3_pos * dt, vel + k3_vel * dt, mass, commandedForce)
 
-    # RK4 Integration
-    k1_pos, k1_vel = orbit_derivatives(r, v, m, commandedForce)
-    k2_pos, k2_vel = orbit_derivatives(r + k1_pos * dt / 2.0, v + k1_vel * dt / 2.0, m, commandedForce)
-    k3_pos, k3_vel = orbit_derivatives(r + k2_pos * dt / 2.0, v + k2_vel * dt / 2.0, m, commandedForce)
-    k4_pos, k4_vel = orbit_derivatives(r + k3_pos * dt, v + k3_vel * dt, m, commandedForce)
+    pos_next = pos + (dt / 6.0) * (k1_pos + 2.0 * k2_pos + 2.0 * k3_pos + k4_pos)
+    vel_next = vel + (dt / 6.0) * (k1_vel + 2.0 * k2_vel + 2.0 * k3_vel + k4_vel)
+    return pos_next, vel_next
 
-    # Update satellite state variables
-    satellite.positionECI = r + (dt / 6.0) * (k1_pos + 2.0 * k2_pos + 2.0 * k3_pos + k4_pos)
-    satellite.velocityECI = v + (dt / 6.0) * (k1_vel + 2.0 * k2_vel + 2.0 * k3_vel + k4_vel)
+
+def step_sat_orbit(satellite: "Satellite", commandedForce: np.ndarray, dt: float):
+    """
+    Propagates the physical orbit of a Satellite object.
+    """
+    pos_next, vel_next = propogate_orbit_rk4(satellite.positionECI, satellite.velocityECI, satellite.mass, commandedForce, dt)
+    satellite.positionECI = pos_next
+    satellite.velocityECI = vel_next
     satellite.time += dt

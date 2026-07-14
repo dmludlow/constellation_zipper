@@ -29,18 +29,20 @@ class Constellation:
 
             satellite.append(sat)
 
-        # Establish order
+        # Establish order and crosslinks
+        from src.vehicle.crosslink import Crosslink
         for i, sat in enumerate(satellite):
             sat.leadingSat = satellite[(i + 1) % number_of_satellites]                                                                                                    
             sat.trailingSat = satellite[(i - 1) % number_of_satellites] 
+            
+            # Create physical crosslink objects
+            sat.leading_link = Crosslink(sender=sat, receiver=sat.leadingSat)
+            sat.trailing_link = Crosslink(sender=sat, receiver=sat.trailingSat)
 
-        # Estbalish crosslinks
+        # Establish initial connection status
         for sat in satellite:
-            leadingSatID = (sat.id + 1) % len(satellite)
-            trailingSatID = (sat.id - 1) % len(satellite)
-
-            sat.leadingConnection = sat.check_connection(sat.leadingSat)
-            sat.trailingConnection = sat.check_connection(sat.trailingSat)
+            sat.leadingConnection = sat.leading_link.check_connection()
+            sat.trailingConnection = sat.trailing_link.check_connection()
 
         return satellite
     
@@ -49,5 +51,5 @@ class Constellation:
         Checks the crosslink connections for all satellites in the constellation.
         """
         for sat in self.satellites:
-            sat.leadingConnection = sat.check_connection(sat.leadingSat)
-            sat.trailingConnection = sat.check_connection(sat.trailingSat)
+            sat.leadingConnection = sat.leading_link.check_connection()
+            sat.trailingConnection = sat.trailing_link.check_connection()

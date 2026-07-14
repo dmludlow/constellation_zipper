@@ -1,7 +1,7 @@
 from src.vehicle.controller import Controller
 from src.vehicle.thruster import Thruster
 import src.config as config
-from src.physics.orbit import propogate_orbit, generate_orbit                                                                                                                          
+from src.physics.orbit import step_sat_orbit, generate_orbit                                                                                                                          
 
 import numpy as np
 
@@ -17,6 +17,8 @@ class Satellite:
     leadingConnection: bool = False          # Whether the satellite is connected to its leading satellite
     trailingSat: "Satellite"                 # Trailing satellite in the constellation
     trailingConnection: bool = False         # Whether the satellite is connected to its leading satellite
+    leading_link: "Crosslink" = None         # Physical crosslink object to leading neighbor
+    trailing_link: "Crosslink" = None        # Physical crosslink object to trailing neighbor
 
 
     # Vehicle state variables
@@ -31,13 +33,6 @@ class Satellite:
     controller: Controller                   # Controller for the satellite
     thruster: Thruster                       # Thruster for the satellite
 
-
-
-    def __init__(self):
-        """
-        Base constructor for Satellite class: 
-        """
-        pass
 
 
     def __init__(self, id: int, mass: float, altitude: float, longitude: float):
@@ -60,6 +55,8 @@ class Satellite:
         self.crosslinkGimbalRange = np.radians(10)  # 10 degree gimbal range
         self.thruster = Thruster(max_thrust = config.MAX_THRUST)  # Default max thrust of 0.1 N
         self.controller = Controller()  # Placeholder controller for now
+        self.leading_link = None
+        self.trailing_link = None
 
 
     def get_control_inputs(self) -> np.ndarray:
@@ -77,36 +74,9 @@ class Satellite:
         controlForce = self.get_control_inputs()
 
         # Propogate vehicle
-        propogate_orbit(self, controlForce, dt)
+        step_sat_orbit(self, controlForce, dt)
 
     
-    def check_connection(self, other_sat: "Satellite") -> bool:
-        """
-        Checks if the satellite can maintain a crosslink connection with another satellite
-        based on gimbal range.
-        """
-        # unit vector from this sat to other sat
-        relative_pos = other_sat.positionECI - self.positionECI
-        distance = np.linalg.norm(relative_pos)
-        if distance == 0:
-            return False  # Same position, cannot connect
-        else:
-            relative_unit = relative_pos / distance
 
-        # Crosslink is aligned with the satellite's velocity vector, so points along velocity unit vector
-        pointing_vector = self.velocityECI / np.linalg.norm(self.velocityECI)
-
-        # determine leading or trailing 
-        # calculate viewing angle between pointing vector and relative position vector
-        if relative_unit.dot(pointing_vector) > 0: # leading
-            viewing_angle = np.arccos(np.clip(relative_unit.dot(pointing_vector), -1.0, 1.0))
-        else: # trailing
-            viewing_angle = np.arccos(np.clip(-relative_unit.dot(pointing_vector), -1.0, 1.0))
-
-        # Make sure the viewing angle is within the gimbal range
-        if viewing_angle <= self.crosslinkGimbalRange:
-            return True
-        else:
-            return False
 
 
