@@ -54,19 +54,40 @@ Because launch trajectories are known in advance, a string of satellites in the 
 
 ---
 
-## Current Verification Status
-* **Physics Engine**: Verified and numerically stable. Evaluates absolute 3D Keplerian gravity + J2 equatorial perturbations via Runge-Kutta 4th Order (RK4) integration.
-* **Actuators**: Thruster force integration ($F = ma$) is fully mapped to ECI acceleration in the propagator.
-* **Crosslink Connection Checks**: Implemented stateless geometry verification. Calculates pointing pitch angle deviations (using ECI position and velocity vector dot products) to check if adjacent gimbals remain locked within their field-of-view limits.
-* **Output Pipeline**: Tidy telemetry is compiled dynamically and exported to `results/telemetry.csv` and `results/orbits.gif`.
+## Implementation Details
+
+### 1. Distributed Model Predictive Control (dMPC)
+Each satellite runs an independent local MPC solver formulated using **Disciplined Parameterized Programming (DPP)**. 
+* **Clohessy-Wiltshire (CW) Dynamics**: Relative satellite motion is linearized in local Hill/LVLH frames.
+* **Compile-Once Architecture**: Optimization parameters, decision variables, objective functions, and constraints are instantiated once in the `Controller.__init__` constructor.
+* **Millisecond Solves**: During runtime, parameters (initial state `x0_param`, neighbor ECI coordinates, and max thrust) are updated dynamically, bypassing the CVXPY compilation pipeline and solving in **$< 1\text{ ms}$** via the `OSQP` solver.
+* **Information Isolation**: Each controller maintains a unique instance dictionary `neighboringSatTrajectories` to isolate plan-sharing information flow, preventing data leaks and representing realistic on-board GNC flight computers.
+
+### 2. Physical constraints under J2 Perturbations
+* **Laser Link Pointing (Gimbal Cone)**: Spacing separation must satisfy the geometry of a 3D gimbal limit $\phi_{max}$. Since radial separation $\Delta x$ and along-track separation $\Delta y$ couple, the absolute value constraint:
+  $$\Delta y \cdot \sin(\phi_{max}) \geq |\Delta x| \cdot \cos(\phi_{max})$$
+  is split into two linear inequalities to maintain full DPP compliance:
+  1. $\Delta y \cdot \sin(\phi_{max}) \geq \Delta x \cdot \cos(\phi_{max})$
+  2. $\Delta y \cdot \sin(\phi_{max}) \geq -\Delta x \cdot \cos(\phi_{max})$
+* **The Feasibility Boundary**: Due to Earth's equatorial bulge (J2), orbits naturally breathe (eccentricity wiggles). Because satellites are equipped only with along-track thrusters, they cannot directly control radial breathing. If the gimbal limit is too strict (e.g. $10.5^\circ$), the radial separation wiggles exceed the pointing bounds, making the optimization problem mathematically infeasible. A moderate limit of **$13.0^\circ$** is verified to be 100% stable and feasible.
+
+### 3. Multi-Rate Caching
+The physical constellation simulation propagates at a time step of $10\text{ s}$ (`SIMULATION_TIME_STEP`). However, the MPC optimization is executed at a coarser rate of $5\text{ minutes}$ (`MPC_TIME_STEP`). On intermediate simulation steps, cached optimal control forces are rotated from the nominal reference frame to the current ECI frame, reducing solver calls by 30x without losing tracking fidelity.
 
 ---
 
 ## How to Run
 
-1. Clone or navigate to the repository directory.
-2. Run the simulation driver script:
-   ```bash
-   python3 main.py
-   ```
-3. Check the `results/` directory for the telemetry logs and animated orbit path outputs.
+### 1. Baseline Station Keeping Simulation
+Runs the constellation simulation under normal flight conditions (J2 active, $20^\circ$ gimbal range) and exports telemetry plots.
+```bash
+python3 main.py
+```
+
+### 2. Coordinated Drift / Thruster-Out Stress Test
+Runs a simulation where Sat 5 experiences a total thruster failure (`max_thrust = 0.0`) and drifts with a $-2.0\text{ m/s}$ along-track delta-V deficit under a tight $13.0^\circ$ gimbal limit. The adjacent satellites coordinate and actively adjust their orbits to keep the drifting satellite within their pointing cones.
+```bash
+python3 testing_thurster_out.py
+```
+
+Check the `results/` directory for the output animated orbit paths (`orbits.gif`), 2D cluster views (`ring_orbits.gif`), and individual spacing plots (`spacing_metrics.png`).
