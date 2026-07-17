@@ -57,6 +57,8 @@ class Controller:
         #  Get physics
         A, B = orbit.eci_to_cw_matrix(x0, v0)
         Ad, Bd = orbit.discretize_CW(A, B, self.dt)
+        self.Ad = Ad
+        self.Bd = Bd
         Bd_flat = Bd.flatten()
 
         # State rollout
@@ -299,26 +301,31 @@ class Controller:
         pred_vel = []
         pred_times = []
 
+        xk_val = None
         for k in range(self.N + 1):
             t_future = time + k * self.dt
             pos_nom_k, vel_nom_k = self.get_nominal_state(t_future)
             
             if success:
                 xk_val = x_expressions[k].value
-                pos_lvlh = np.array([xk_val[0], xk_val[1], 0.0])
-                vel_lvlh = np.array([xk_val[2], xk_val[3], 0.0])
-                
-                r_unit = pos_nom_k / np.linalg.norm(pos_nom_k)
-                h_unit = np.cross(pos_nom_k, vel_nom_k)
-                h_unit /= np.linalg.norm(h_unit)
-                theta_unit = np.cross(h_unit, r_unit)
-                R_lvlh_to_eci = np.vstack([r_unit, theta_unit, h_unit]).T
-                
-                pos_eci = pos_nom_k + R_lvlh_to_eci @ pos_lvlh
-                vel_eci = vel_nom_k + R_lvlh_to_eci @ vel_lvlh
             else:
-                pos_eci = pos_nom_k
-                vel_eci = vel_nom_k
+                # Fallback: propagate passively using Ad under zero thrust (u=0)
+                if k == 0:
+                    xk_val = self.x0_param.value
+                else:
+                    xk_val = self.Ad @ xk_val
+            
+            pos_lvlh = np.array([xk_val[0], xk_val[1], 0.0])
+            vel_lvlh = np.array([xk_val[2], xk_val[3], 0.0])
+            
+            r_unit = pos_nom_k / np.linalg.norm(pos_nom_k)
+            h_unit = np.cross(pos_nom_k, vel_nom_k)
+            h_unit /= np.linalg.norm(h_unit)
+            theta_unit = np.cross(h_unit, r_unit)
+            R_lvlh_to_eci = np.vstack([r_unit, theta_unit, h_unit]).T
+            
+            pos_eci = pos_nom_k + R_lvlh_to_eci @ pos_lvlh
+            vel_eci = vel_nom_k + R_lvlh_to_eci @ vel_lvlh
 
             pred_pos.append(pos_eci)
             pred_vel.append(vel_eci)

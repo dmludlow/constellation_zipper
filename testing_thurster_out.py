@@ -19,7 +19,7 @@ sampleConstellation = Constellation(number_of_satellites=18, altitude=500000)
 
 # Configure the thruster out scenario on Sat 5
 sat5 = sampleConstellation.satellites[5]
-sat5.max_thrust = 0.0  # Engine failure
+sat5.thruster.max_thrust = 0.0  # Engine failure
 vel_unit = sat5.velocityECI / np.linalg.norm(sat5.velocityECI)
 sat5.velocityECI -= 2.0 * vel_unit  # Inject 2 m/s drift velocity deficit
 
