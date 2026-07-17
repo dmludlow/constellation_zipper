@@ -18,11 +18,11 @@ SIMULATION_TIME_STEP = 10.0                            # seconds
 SIMULATION_DURATION = 3600.0 * 6                     # seconds
 
 # --- Crosslink Properties ---
-CROSSLINK_GIMBAL_RANGE = np.deg2rad(20)        # radians
+CROSSLINK_GIMBAL_RANGE = np.deg2rad(20)          # radians
 
 # --- Controller Properties ---
 MPC_TIME_STEP = 300.0                             # seconds (5 minutes)
 MPC_HORIZON_LENGTH = 48                           # Number of steps in the MPC horizon (4 hours lookahead)
 SAFETY_DISTANCE = 50e3                            # Minimum distance to maintain from other satellites in meters
 MPC_Q_MATRIX = np.diag([1.0, 1.0, 10.0, 10.0])    # State errors
-MPC_R_MATRIX = 1                                  # Fuel penalty
+MPC_R_MATRIX = 1                                 # Fuel penalty
