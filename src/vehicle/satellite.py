@@ -35,7 +35,7 @@ class Satellite:
     crosslinkGimbalRange: float              # Gimbal range of the crosslink in radians
     controller: Controller                   # Controller for the satellite
     thruster: Thruster                       # Thruster for the satellite
-
+    applied_thrust: np.ndarray               # Cached thrust applied during the step
 
 
     def __init__(self, id: int, mass: float, altitude: float, longitude: float):
@@ -57,16 +57,17 @@ class Satellite:
         self.time = 0.0                                 # Initial time
         self.crosslinkGimbalRange = np.radians(10)  # 10 degree gimbal range
         self.thruster = Thruster(max_thrust = config.MAX_THRUST)  # Default max thrust of 0.1 N
-        self.controller = Controller()  # Placeholder controller for now
+        self.controller = Controller(self.positionECI.copy(), self.velocityECI.copy())
         self.leading_link = None
         self.trailing_link = None
+        self.applied_thrust = np.zeros(3)
 
 
     def get_control_inputs(self) -> np.ndarray:
         """
-        Computes the control inputs for the satellite
+        Returns the last computed control inputs (cached) without re-solving MPC
         """
-        return self.controller.compute_control()
+        return self.applied_thrust
     
 
     def step(self, dt: float):
@@ -74,12 +75,13 @@ class Satellite:
         Advances the state of the satellite by a time step dt
         """
         # Get control inputs
-        controlForce = self.get_control_inputs()
+        self.applied_thrust = self.controller.solve_mpc(
+            time=self.time,
+            pos=self.positionECI,
+            vel=self.velocityECI,
+            mass=self.mass,
+            max_thrust=self.thruster.max_thrust
+        )
 
         # Propogate vehicle
-        step_sat_orbit(self, controlForce, dt)
-
-    
-
-
-
+        step_sat_orbit(self, self.applied_thrust, dt)

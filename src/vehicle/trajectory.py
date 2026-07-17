@@ -28,9 +28,18 @@ class Trajectory:
         """
         Returns the position and velocity of the object at a specific time.
         If the exact time is not in the trajectory, it linearly interpolates between the two nearest points.
+        If the query time is slightly out of bounds, it performs constant velocity extrapolation.
         """
-        if query_time < self.time[0] or query_time > self.time[-1]:
-            raise ValueError("Query time is out of bounds of the trajectory.")
+        if query_time < self.time[0]:
+            # Extrapolate backwards
+            dt = query_time - self.time[0]
+            pos = self.positionECI[0] + self.velocityECI[0] * dt
+            return pos, self.velocityECI[0]
+        elif query_time > self.time[-1]:
+            # Extrapolate forwards
+            dt = query_time - self.time[-1]
+            pos = self.positionECI[-1] + self.velocityECI[-1] * dt
+            return pos, self.velocityECI[-1]
 
         # Find the index of the closest time point
         idx = np.searchsorted(self.time, query_time)

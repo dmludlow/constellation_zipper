@@ -219,3 +219,181 @@ def save_telemetry_to_csv(simulation, filename="telemetry.csv"):
                 writer.writerow(row)
                 
     print(f"Telemetry saved successfully to {csv_path}")
+
+
+def see_spacing_plots(simulation):
+    """
+    Generates static plots of inter-satellite spacing and connection statuses over time,
+    saving the figure as 'spacing_metrics.png' in the results folder.
+    """
+    telemetry = simulation.telemetry
+    if not telemetry:
+        print("No telemetry data for spacing plots.")
+        return
+
+    sat_ids = sorted(list(telemetry.keys()))
+    n_steps = len(telemetry[sat_ids[0]]['time'])
+    time_sec = np.array(telemetry[sat_ids[0]]['time'])
+
+    # Compute spacing (distance to leading neighbor) and connection status
+    spacing_matrix = np.zeros((len(sat_ids), n_steps))
+    connection_matrix = np.zeros((len(sat_ids), n_steps))
+
+    for step_idx in range(n_steps):
+        for i, sat_id in enumerate(sat_ids):
+            pos = telemetry[sat_id]['r'][step_idx]
+            next_sat_id = sat_ids[(i + 1) % len(sat_ids)]
+            pos_next = telemetry[next_sat_id]['r'][step_idx]
+
+            dist = np.linalg.norm(pos_next - pos)
+            spacing_matrix[i, step_idx] = dist / 1000.0  # in km
+
+            # Link status (using leading link active boolean)
+            lead_active = telemetry[sat_id]['leading_link_active'][step_idx]
+            connection_matrix[i, step_idx] = 1.0 if lead_active else 0.0
+
+    fig, (ax1, ax2) = plt.subplots(2, 1, figsize=(10, 8), sharex=True)
+
+    # Plot 1: Spacing (each satellite's spacing layered clearly)
+    for i in range(len(sat_ids)):
+        ax1.plot(time_sec, spacing_matrix[i], alpha=0.8, lw=1.2, label="Inter-satellite Spacing" if i == 0 else None)
+
+    ax1.set_ylabel("Along-Track Spacing [km]")
+    ax1.set_title("Inter-Satellite Spacing and Connection Status over Time")
+    ax1.grid(True, linestyle=':', alpha=0.6)
+    ax1.legend(loc="upper right")
+
+    # Plot 2: Active Connection Percentage
+    active_percentage = np.mean(connection_matrix, axis=0) * 100.0
+    ax2.plot(time_sec, active_percentage, color='forestgreen', lw=2, label="Active Links %")
+    ax2.set_ylabel("Constellation Connectivity [%]")
+    ax2.set_xlabel("Simulation Time [s]")
+    ax2.set_ylim([-5, 105])
+    ax2.grid(True, linestyle=':', alpha=0.6)
+    ax2.legend(loc="lower right")
+
+    workspace_dir = "/Users/danielludlow/Documents/Constellation-MPC"
+    results_dir = os.path.join(workspace_dir, "results")
+    os.makedirs(results_dir, exist_ok=True)
+    plot_path = os.path.join(results_dir, "spacing_metrics.png")
+    
+    plt.tight_layout()
+    plt.savefig(plot_path, dpi=150)
+    plt.close(fig)
+    print(f"Spacing plots saved successfully to {plot_path}")
+
+
+def see_ring_animation(simulation):
+    """
+    Generates a 2D animated GIF showing the equatorial ring of satellites,
+    their spacing, and their crosslink connection statuses (green = active, red = broken) over time.
+    The GIF is saved as 'ring_orbits.gif' in the results folder.
+    """
+    telemetry = simulation.telemetry
+    if not telemetry:
+        print("No telemetry data for ring animation.")
+        return
+
+    sat_ids = sorted(list(telemetry.keys()))
+    n_steps = len(telemetry[sat_ids[0]]['time'])
+
+    # Downsample steps to keep file size small (~100 frames)
+    frame_step = max(1, n_steps // 100)
+    frame_indices = list(range(0, n_steps, frame_step))
+    if len(frame_indices) == 0 or frame_indices[-1] != n_steps - 1:
+        frame_indices.append(n_steps - 1)
+
+    r_earth = 6378137.0
+    try:
+        import src.config as config
+        r_earth = config.EARTH_EQUATORIAL_RADIUS
+    except Exception:
+        pass
+
+    fig, ax = plt.subplots(figsize=(8, 8))
+    frames = []
+    temp_dir = tempfile.mkdtemp()
+
+    # Find max position magnitude to scale axis
+    max_r = r_earth + 500000.0
+    limit = max_r * 1.15
+
+    try:
+        for frame_idx, step_idx in enumerate(frame_indices):
+            ax.clear()
+            ax.set_aspect('equal')
+            ax.set_xlim([-limit, limit])
+            ax.set_ylim([-limit, limit])
+            ax.set_xlabel("X (ECI) [m]")
+            ax.set_ylabel("Y (ECI) [m]")
+
+            # Draw Earth as a 2D blue circle
+            earth_circle = plt.Circle((0, 0), r_earth, facecolor='royalblue', alpha=0.3, edgecolor='cornflowerblue', lw=1.5)
+            ax.add_patch(earth_circle)
+
+            # Draw nominal orbit path as a thin dotted gray circle
+            orbit_circle = plt.Circle((0, 0), max_r, color='gray', linestyle=':', fill=False, alpha=0.3, lw=1)
+            ax.add_patch(orbit_circle)
+
+            # Store positions for this step to draw links
+            step_positions = {}
+            for sat_id in sat_ids:
+                step_positions[sat_id] = telemetry[sat_id]['r'][step_idx]
+
+            # Draw crosslinks first (so they sit behind the satellite dots)
+            for i, sat_id in enumerate(sat_ids):
+                pos = step_positions[sat_id]
+                next_sat_id = sat_ids[(i + 1) % len(sat_ids)]
+                pos_next = step_positions[next_sat_id]
+
+                # Link connection flag
+                link_active = telemetry[sat_id]['leading_link_active'][step_idx]
+
+                # Line properties: green solid for connected, red dashed for broken
+                color = 'limegreen' if link_active else 'crimson'
+                style = '-' if link_active else '--'
+                width = 2.0 if link_active else 1.0
+                alpha = 0.8 if link_active else 0.4
+
+                ax.plot([pos[0], pos_next[0]], [pos[1], pos_next[1]], 
+                        color=color, linestyle=style, lw=width, alpha=alpha)
+
+            # Draw satellite dots and labels
+            for sat_id in sat_ids:
+                pos = step_positions[sat_id]
+                ax.scatter(pos[0], pos[1], color='black', marker='o', s=35, zorder=5)
+                # Shift text label slightly outward radially to prevent overlap
+                angle = np.arctan2(pos[1], pos[0])
+                label_offset = 1.07
+                ax.text(pos[0] * label_offset, pos[1] * label_offset, f"S{sat_id}", 
+                        color='black', fontsize=8, ha='center', va='center')
+
+            time_sec = telemetry[sat_ids[0]]['time'][step_idx]
+            ax.set_title(f"Constellation Ring Topology\nTime: {time_sec:.1f} s (Green = Connected, Red = Broken)")
+
+            # Save frame
+            frame_path = os.path.join(temp_dir, f"frame_{frame_idx:04d}.png")
+            plt.savefig(frame_path, dpi=100, bbox_inches='tight')
+            img = Image.open(frame_path)
+            img.load()
+            frames.append(img)
+
+        # Ensure results directory exists and save
+        workspace_dir = "/Users/danielludlow/Documents/Constellation-MPC"
+        results_dir = os.path.join(workspace_dir, "results")
+        os.makedirs(results_dir, exist_ok=True)
+        output_path = os.path.join(results_dir, "ring_orbits.gif")
+
+        if frames:
+            frames[0].save(
+                output_path,
+                save_all=True,
+                append_images=frames[1:],
+                duration=80,
+                loop=0
+            )
+            print(f"2D Ring animation saved successfully to {output_path}")
+
+    finally:
+        plt.close(fig)
+        shutil.rmtree(temp_dir)

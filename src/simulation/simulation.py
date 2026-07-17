@@ -51,13 +51,15 @@ class Simulation:
         """
         Advances simulation by one time step
         """
+        self.constellation.communicate()
+
         for sat in self.constellation.satellites:
             # Step each satellite (advances physics and time)
             sat.step(self.dt)
 
-        # Check crosslink connections for the new positions
+        # Update link connections 
         self.constellation.check_crosslinks()
-
+        
         # Record new states in the telemetry database
         self.log_telemetry()
 
@@ -66,6 +68,9 @@ class Simulation:
         Runs the simulation for the specified duration
         """
         for t in self.timeVector:
+            # Print simulation progress every hour
+            if t > 0 and t % 100.0 == 0:
+                print(f" * sim time: {int(t)} s")
             self.step()
 
         # Convert lists to numpy arrays for easier post-processing

@@ -53,3 +53,11 @@ class Constellation:
         for sat in self.satellites:
             sat.leadingConnection = sat.leading_link.check_connection()
             sat.trailingConnection = sat.trailing_link.check_connection()
+
+    def communicate(self):
+        """
+        Transmits data between sats if crosslink is active
+        """
+        for sat in self.satellites:
+            sat.leading_link.transmit()
+            sat.trailing_link.transmit()

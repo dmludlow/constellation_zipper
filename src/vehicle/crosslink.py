@@ -49,4 +49,14 @@ class Crosslink:
         return self.connection_active
 
     def transmit(self) -> bool:
-        pass
+        """
+        Transmits the sender's predicted trajectory to the receiver if the link is active.
+        """
+        if self.check_connection():
+            if self.sender.controller.computedTrajectory is not None:
+                self.receiver.controller.receive_neighboring_trajectories(
+                    self.sender.id, 
+                    self.sender.controller.computedTrajectory
+                )
+                return True
+        return False
