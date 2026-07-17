@@ -8,7 +8,7 @@ import matplotlib.pyplot as plt
 from mpl_toolkits.mplot3d import Axes3D
 from PIL import Image
 
-def see_globe(simulation):
+def see_globe(simulation, target_orbit_time_sec=1.5):
     """
     Generates a 3D animated GIF of the satellites orbiting the Earth based on simulation telemetry.
     The GIF is saved as 'orbits.gif' in the results folder.
@@ -43,6 +43,20 @@ def see_globe(simulation):
         r_earth = config.EARTH_EQUATORIAL_RADIUS
     except Exception:
         pass
+
+    # Calculate orbital period dynamically to set perfect playback speed (target_orbit_time_sec per orbit)
+    r_orbit = r_earth + 500000.0
+    for sat_id in sat_ids:
+        pos = telemetry[sat_id]['r']
+        if len(pos) > 0:
+            r_orbit = np.mean(np.linalg.norm(pos, axis=1))
+            break
+    GM = 3.986004418e14
+    orbital_period = 2 * np.pi * np.sqrt(r_orbit**3 / GM)
+    steps_per_orbit = orbital_period / simulation.dt
+    frames_per_orbit = steps_per_orbit / frame_step
+    duration_ms = int((target_orbit_time_sec * 1000.0) / frames_per_orbit)
+    duration_ms = max(20, min(2000, duration_ms))
         
     # Set dark style
     plt.style.use('dark_background')
@@ -125,7 +139,7 @@ def see_globe(simulation):
                 output_path,
                 save_all=True,
                 append_images=frames[1:],
-                duration=80,
+                duration=duration_ms,
                 loop=0
             )
             print(f"GIF saved successfully to {output_path}")
@@ -363,7 +377,7 @@ def see_spacing_plots(simulation):
     print(f"Spacing plots dashboard saved successfully to {plot_path}")
 
 
-def see_ring_animation(simulation):
+def see_ring_animation(simulation, target_orbit_time_sec=1.5):
     """
     Generates a premium 2D radar-style animated GIF showing the equatorial ring of satellites,
     their spacing, and their crosslink connection statuses:
@@ -394,6 +408,20 @@ def see_ring_animation(simulation):
         r_earth = config.EARTH_EQUATORIAL_RADIUS
     except Exception:
         pass
+
+    # Calculate orbital period dynamically to set perfect playback speed (target_orbit_time_sec per orbit)
+    r_orbit = r_earth + 500000.0
+    for sat_id in sat_ids:
+        pos = telemetry[sat_id]['r']
+        if len(pos) > 0:
+            r_orbit = np.mean(np.linalg.norm(pos, axis=1))
+            break
+    GM = 3.986004418e14
+    orbital_period = 2 * np.pi * np.sqrt(r_orbit**3 / GM)
+    steps_per_orbit = orbital_period / simulation.dt
+    frames_per_orbit = steps_per_orbit / frame_step
+    duration_ms = int((target_orbit_time_sec * 1000.0) / frames_per_orbit)
+    duration_ms = max(20, min(2000, duration_ms))
 
     plt.style.use('dark_background')
     fig, ax = plt.subplots(figsize=(8, 8), facecolor='#121212')
@@ -505,7 +533,7 @@ def see_ring_animation(simulation):
                 output_path,
                 save_all=True,
                 append_images=frames[1:],
-                duration=80,
+                duration=duration_ms,
                 loop=0
             )
             print(f"2D Ring animation saved successfully to {output_path}")
@@ -514,3 +542,112 @@ def see_ring_animation(simulation):
         plt.close(fig)
         shutil.rmtree(temp_dir)
         plt.style.use('default')
+
+
+def print_summary_metrics(simulation):
+    """
+    Analyzes telemetry data and prints a structured console report
+    detailing the MPC success rate, fuel consumption, and constraint tracking.
+    """
+    telemetry = simulation.telemetry
+    if not telemetry:
+        print("No telemetry data to summarize.")
+        return
+
+    import src.config as config
+
+    sat_ids = sorted(list(telemetry.keys()))
+    n_steps = len(telemetry[sat_ids[0]]['time'])
+    dt = simulation.dt
+
+    print("\n" + "="*80)
+    print("                      MPC PERFORMANCE & SAFETY SUMMARY")
+    print("="*80)
+    print(f"{'Sat ID':<8} | {'MPC Success Rate':<18} | {'Mean Space Error (km)':<22} | {'Fuel Impulse (N-s)':<18}")
+    print("-"*80)
+
+    total_solves = 0
+    total_failures = 0
+    total_gimbal_violations = 0
+    total_safety_violations = 0
+    gimbal_limit_deg = np.rad2deg(config.CROSSLINK_GIMBAL_RANGE)
+    safety_distance_km = config.SAFETY_DISTANCE / 1000.0
+
+    for sat_id in sat_ids:
+        sat_data = telemetry[sat_id]
+        
+        # Calculate solver stats (only count actual solves, i.e. when step matches MPC update cycle)
+        statuses = sat_data['solver_status']
+        times = sat_data['time']
+        
+        # Filter to actual MPC run steps
+        actual_solves = 0
+        successful_solves = 0
+        
+        # Find when solver actually executes (every MPC time step)
+        last_solve_time = -9999.0
+        for step_idx, t in enumerate(times):
+            # The controller solves at step 0, and then whenever (t - last_mpc_run_time) >= MPC_TIME_STEP
+            if t == 0.0 or (t - last_solve_time) >= config.MPC_TIME_STEP:
+                actual_solves += 1
+                status = statuses[step_idx]
+                if status in ["optimal", "optimal_inaccurate"]:
+                    successful_solves += 1
+                last_solve_time = t
+        
+        solver_success_pct = (successful_solves / actual_solves) * 100.0 if actual_solves > 0 else 100.0
+        
+        total_solves += actual_solves
+        total_failures += (actual_solves - successful_solves)
+
+        # Calculate tracking errors
+        # To avoid class variable issues, we recreate a mock controller state for slot lookup
+        from src.vehicle.controller import Controller
+        ctrl = Controller(sat_data['r'][0], sat_data['v'][0])
+        
+        tracking_errors = []
+        for step_idx, t in enumerate(times):
+            pos_actual = sat_data['r'][step_idx]
+            pos_nom, _ = ctrl.get_nominal_state(t)
+            err = np.linalg.norm(pos_actual - pos_nom) / 1000.0  # km
+            tracking_errors.append(err)
+            
+        mean_err_km = np.mean(tracking_errors)
+
+        # Calculate fuel usage
+        thrusts = np.array(sat_data['applied_thrust'])
+        thrust_mags = np.linalg.norm(thrusts, axis=1)
+        fuel_impulse = np.sum(thrust_mags) * dt
+
+        print(f"S{sat_id:<7} | {solver_success_pct:>16.2f}% | {mean_err_km:>20.4f} | {fuel_impulse:>16.2f}")
+
+        # Check safety and gimbal violations over the full telemetry history
+        for step_idx in range(n_steps):
+            pos = sat_data['r'][step_idx]
+            vel = sat_data['v'][step_idx]
+            
+            # Find leading neighbor
+            next_sat_id = sat_ids[(sat_ids.index(sat_id) + 1) % len(sat_ids)]
+            pos_next = telemetry[next_sat_id]['r'][step_idx]
+
+            # Spacing check
+            dist = np.linalg.norm(pos_next - pos) / 1000.0
+            if dist < safety_distance_km:
+                total_safety_violations += 1
+
+            # Pointing check
+            rel_pos = pos_next - pos
+            rel_unit = rel_pos / np.linalg.norm(rel_pos)
+            vel_unit = vel / np.linalg.norm(vel)
+            dot_product = rel_unit.dot(vel_unit)
+            viewing_angle = np.rad2deg(np.arccos(np.clip(abs(dot_product), -1.0, 1.0)))
+            if viewing_angle > gimbal_limit_deg:
+                total_gimbal_violations += 1
+
+    print("-"*80)
+    print("Constellation Fleet Summary:")
+    print(f" * Total Optimization Cycles : {total_solves} solves")
+    print(f" * Solver Success Rate       : {((total_solves - total_failures)/total_solves)*100.0:.3f}%")
+    print(f" * Gimbal Range Violations   : {total_gimbal_violations} steps")
+    print(f" * Safety Distance Breaches  : {total_safety_violations} steps")
+    print("="*80 + "\n")

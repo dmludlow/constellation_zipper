@@ -9,7 +9,7 @@ import numpy as np
 from src.constellation import Constellation
 from src.simulation.simulation import Simulation
 import src.config as config
-from src.simulation.visualization import see_globe, save_telemetry_to_csv, see_spacing_plots, see_ring_animation
+from src.simulation.visualization import see_globe, save_telemetry_to_csv, see_spacing_plots, see_ring_animation, print_summary_metrics
 
 # Configure restrictive gimbal limit in the config module before initialization
 config.CROSSLINK_GIMBAL_RANGE = np.deg2rad(13.0)
@@ -46,3 +46,5 @@ print("Visualization complete.")
 print("Generating telemetry csv...")
 save_telemetry_to_csv(samepleSimulation)
 print("CSV complete.")
+
+print_summary_metrics(samepleSimulation)

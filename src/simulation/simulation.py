@@ -30,6 +30,7 @@ class Simulation:
                 'applied_thrust': [],   # Will hold Nx3 arrays
                 'leading_link_active': [],
                 'trailing_link_active': [],
+                'solver_status': [],    # Records MPC status at each step
             }
     
 
@@ -40,12 +41,14 @@ class Simulation:
         """
         for sat in self.constellation.satellites:
             controlForce = sat.get_control_inputs()
+            status = sat.controller.prob.status if (hasattr(sat.controller, 'prob') and sat.controller.prob is not None) else "None"
             self.telemetry[sat.id]['time'].append(sat.time)
             self.telemetry[sat.id]['r'].append(sat.positionECI.copy())
             self.telemetry[sat.id]['v'].append(sat.velocityECI.copy())
             self.telemetry[sat.id]['applied_thrust'].append(controlForce.copy())
             self.telemetry[sat.id]['leading_link_active'].append(sat.leadingConnection)
             self.telemetry[sat.id]['trailing_link_active'].append(sat.trailingConnection)
+            self.telemetry[sat.id]['solver_status'].append(status)
 
     def step(self):
         """

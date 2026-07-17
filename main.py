@@ -6,7 +6,7 @@ Sample for now, just need to proove that orbits and attitude propogate correctly
 from src.constellation import Constellation
 from src.simulation.simulation import Simulation
 import src.config as config
-from src.simulation.visualization import see_globe, save_telemetry_to_csv, see_spacing_plots, see_ring_animation
+from src.simulation.visualization import see_globe, save_telemetry_to_csv, see_spacing_plots, see_ring_animation, print_summary_metrics
 
 # 10 Sats in 500 km orbit
 sampleConstellation = Constellation(number_of_satellites=18, altitude=500000)
@@ -28,3 +28,5 @@ print("Visualization complete.")
 print("Generating telemetry csv...")
 save_telemetry_to_csv(samepleSimulation)
 print("CSV complete.")
+
+print_summary_metrics(samepleSimulation)
