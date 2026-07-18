@@ -23,7 +23,9 @@ class Constellation:
         Currently assumes standard mass of 500 kg)
         """
         satellite = []
+        print("Compiling satellite controllers...", flush=True)
         for i in range(number_of_satellites):
+            print(f"  -> Compiling Controller for Satellite {i}...", flush=True)
             degrees_long = (360/number_of_satellites) * i  # Evenly spaced longitudes
             sat = Satellite(id = i, mass = 500, altitude = altitude, longitude = degrees_long)
 

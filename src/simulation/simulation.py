@@ -70,10 +70,11 @@ class Simulation:
         """
         Runs the simulation for the specified duration
         """
+        print("Starting simulation (Step 0 - compiling CVXPY solver lazy structures)...", flush=True)
         for t in self.timeVector:
             # Print simulation progress every hour
             if t > 0 and t % 100.0 == 0:
-                print(f" * sim time: {int(t)} s")
+                print(f" * sim time: {int(t)} s", flush=True)
             self.step()
 
         # Convert lists to numpy arrays for easier post-processing

@@ -86,6 +86,13 @@ class Controller:
             q_diag[3] * cp.square(x_expr[self.N][3])
         )
 
+        #  soft crosslink constraints (must be non-negative)                                                                       
+        s_lead_pointing = cp.Variable((self.N, 2), nonneg=True)                                                                                          
+        s_lead_dist = cp.Variable(self.N, nonneg=True)                                                                                                   
+                                                                                                                                                      
+        s_trail_pointing = cp.Variable((self.N, 2), nonneg=True)                                                                                         
+        s_trail_dist = cp.Variable(self.N, nonneg=True)
+        
         # Constraints
         constraints = [
             self.u >= -self.max_thrust_param,
@@ -100,30 +107,37 @@ class Controller:
         # Add crosslink constraints to the pre-compiled problem
         for k in range(1, self.N + 1):
             idx = k - 1
-            # Leading neighbor constraints
-            dx_lead = self.leading_pos_param[idx, 0] - x_expr[k][0]
-            dy_lead = self.leading_pos_param[idx, 1] - x_expr[k][1]
-            constraints.append(dy_lead * np.sin(phi_max) >= dx_lead * np.cos(phi_max))
-            constraints.append(dy_lead * np.sin(phi_max) >= -dx_lead * np.cos(phi_max))
-            constraints.append(dy_lead <= max_along_track)
-            constraints.append(dy_lead >= min_along_track)
-
-            # Trailing neighbor constraints
-            dx_trail = self.trailing_pos_param[idx, 0] - x_expr[k][0]
-            dy_trail = self.trailing_pos_param[idx, 1] - x_expr[k][1]
-            constraints.append((-dy_trail) * np.sin(phi_max) >= dx_trail * np.cos(phi_max))
-            constraints.append((-dy_trail) * np.sin(phi_max) >= -dx_trail * np.cos(phi_max))
-            constraints.append(-dy_trail <= max_along_track)
-            constraints.append(-dy_trail >= min_along_track)
+            # Leading neighbor constraints (Soft pointing & max distance, hard safety floor)                                                             
+            dx_lead = self.leading_pos_param[idx, 0] - x_expr[k][0]                                                                                      
+            dy_lead = self.leading_pos_param[idx, 1] - x_expr[k][1]                                                                                      
+            constraints.append(dy_lead * np.sin(phi_max) + s_lead_pointing[idx, 0] >= dx_lead * np.cos(phi_max))                                         
+            constraints.append(dy_lead * np.sin(phi_max) + s_lead_pointing[idx, 1] >= -dx_lead * np.cos(phi_max))                                        
+            constraints.append(dy_lead - s_lead_dist[idx] <= max_along_track)                                                                            
+            constraints.append(dy_lead >= min_along_track) # Hard safety limit                                                                           
+                                                                                                                                                             
+            # Trailing neighbor constraints (Soft pointing & max distance, hard safety floor)                                                            
+            dx_trail = self.trailing_pos_param[idx, 0] - x_expr[k][0]                                                                                    
+            dy_trail = self.trailing_pos_param[idx, 1] - x_expr[k][1]                                                                                    
+            constraints.append((-dy_trail) * np.sin(phi_max) + s_trail_pointing[idx, 0] >= dx_trail * np.cos(phi_max))                                   
+            constraints.append((-dy_trail) * np.sin(phi_max) + s_trail_pointing[idx, 1] >= -dx_trail * np.cos(phi_max))                                  
+            constraints.append(-dy_trail - s_trail_dist[idx] <= max_along_track)                                                                         
+            constraints.append(-dy_trail >= min_along_track) # Hard safety limit
 
         # Add equal spacing goal
         spacing_weight = config.MPC_W_MATRIX
         for k in range(1, self.N + 1):
-            idx = k -1
+            idx = k - 1
             lead_spacing = self.leading_pos_param[idx, 1] - x_expr[k][1]
             trail_spacing = x_expr[k][1] - self.trailing_pos_param[idx, 1]
             # minimize square difference for sign
             cost += spacing_weight * cp.square(lead_spacing - trail_spacing)
+
+        # Soft constraint penalties (forces slacks to remain 0 unless physically impossible)                                                             
+        pointing_penalty = config.MPC_SOFT_CONSTRAINT_PENALTY                                                                                                                         
+        cost += pointing_penalty * (                                                                                                                     
+            cp.sum_squares(s_lead_pointing) + cp.sum_squares(s_lead_dist) +                                                                              
+            cp.sum_squares(s_trail_pointing) + cp.sum_squares(s_trail_dist)
+        )
 
 
         self.prob = cp.Problem(cp.Minimize(cost), constraints)
@@ -230,8 +244,14 @@ class Controller:
             self.leading_pos_param.value = leading_val
             self.trailing_pos_param.value = trailing_val
             
-            # Solve pre-compiled QP
-            self.prob.solve(solver=cp.OSQP, warm_start=True, verbose=False)
+            self.prob.solve(
+                solver=cp.OSQP, 
+                warm_start=True, 
+                verbose=False,
+                max_iter=10000,
+                eps_abs=1e-3,
+                eps_rel=1e-3
+            )
 
             success = self.prob.status in ["optimal", "optimal_inaccurate"]
             if success:                                                                                             
