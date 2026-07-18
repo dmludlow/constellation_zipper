@@ -15,25 +15,19 @@ class Controller:
     Implements a distributed model predictive control algorithm to open a slot in a satellite constellation
     """
 
-    # MPC parameters
+    # MPC parameters (Immutable configuration properties)
     N: int = config.MPC_HORIZON_LENGTH                             # MPC horizon length
     dt: float = config.MPC_TIME_STEP                               # Time step for the MPC in seconds
     safety_distance: float = config.SAFETY_DISTANCE                # Minimum distance to maintain from other satellites in meters
 
-    # MPC results
-    computedControl: np.ndarray = np.zeros(3)                      # Computed control inputs
-    computedTrajectory: Trajectory = None                          # Computed trajectory of the satellite
-
-    # Inputs
-    neighboringSatTrajectories: dict[int, Trajectory] = {}         # Dictionary to hold neighboring satellite trajectories for MPC
-    foreignTrajectory: Trajectory                                   # Trajectory of object ot be avoided
-
-    # Initial position and velocity (to propogate nominal reference position)
-    initialPosition: np.ndarray = np.zeros(3)                       # Initial position of the satellite in ECI frame
-    initialVelocity: np.ndarray = np.zeros(3)                       # Initial velocity of the satellite
-
-    time: float = 0.0                                                # Current time in seconds
-
+    # Instance variable type annotations (actual variables are allocated in __init__)
+    initialPosition: np.ndarray
+    initialVelocity: np.ndarray
+    time: float
+    computedControl: np.ndarray
+    computedTrajectory: Optional[Trajectory]
+    neighboringSatTrajectories: dict[int, Trajectory]
+    foreignTrajectory: Optional[Trajectory]
 
     def __init__(self, x0: np.ndarray, v0: np.ndarray):
         """
@@ -41,8 +35,13 @@ class Controller:
         """
         self.initialPosition = x0
         self.initialVelocity = v0
+        self.time = 0.0
         self.last_mpc_run_time = -9999.0  # Time of last MPC optimization execution
         self.stored_controls = None       # Array to cache calculated optimal control inputs
+        
+        # Instance-specific allocations to prevent shared class-level mutable defaults
+        self.computedControl = np.zeros(3)
+        self.computedTrajectory = None
         self.neighboringSatTrajectories = {}
         self.foreignTrajectory = None
 
