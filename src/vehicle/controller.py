@@ -1,5 +1,5 @@
 import src.config as config
-from src.vehicle.trajectory import Trajectory
+from src.physics.trajectory import Trajectory
 import src.physics.orbit as orbit
 from typing import Optional
 from typing import TYPE_CHECKING
@@ -115,6 +115,16 @@ class Controller:
             constraints.append((-dy_trail) * np.sin(phi_max) >= -dx_trail * np.cos(phi_max))
             constraints.append(-dy_trail <= max_along_track)
             constraints.append(-dy_trail >= min_along_track)
+
+        # Add equal spacing goal
+        spacing_weight = config.MPC_W_MATRIX
+        for k in range(1, self.N + 1):
+            idx = k -1
+            lead_spacing = self.leading_pos_param[idx, 1] - x_expr[k][1]
+            trail_spacing = x_expr[k][1] - self.trailing_pos_param[idx, 1]
+            # minimize square difference for sign
+            cost += spacing_weight * cp.square(lead_spacing - trail_spacing)
+
 
         self.prob = cp.Problem(cp.Minimize(cost), constraints)
         self.x_expr = x_expr

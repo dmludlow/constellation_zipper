@@ -4,7 +4,7 @@ import src.config as config
 
 if TYPE_CHECKING:
     from src.vehicle.satellite import Satellite
-    from src.vehicle.trajectory import Trajectory
+    from src.physics.trajectory import Trajectory
 
 class Crosslink:
     """
