@@ -1,4 +1,5 @@
 import numpy as np
+from tqdm import tqdm
 from src.constellation import Constellation
 from src.vehicle.satellite import Satellite
 
@@ -8,17 +9,18 @@ class Simulation:
     """
 
     dt: float                                  # Time step for the simulation in seconds
-    duration: float                            # Total duration of the simulation in seconds
+    duration_s: float                            # Total duration_s of the simulation in seconds
     timeVector: np.ndarray                     # Array of time steps for the simulation
     constellation: Constellation               # Constellation of satellites in the simulation
     telemetry: dict                            # Dictionary to store telemetry data for each satellite
 
     
-    def __init__(self, constellation, duration_sec, dt):
+    #TODO       example below from chat
+    def __init__(self, constellation, duration_s, dt):
         self.constellation = constellation
-        self.duration = duration_sec
+        self.duration_s = duration_s
         self.dt = dt
-        self.timeVector = np.arange(0, duration_sec, dt)
+        self.timeVector = np.arange(0, duration_s, dt)
         
         # Unified Telemetry Database
         self.telemetry = {}
@@ -33,8 +35,8 @@ class Simulation:
                 'solver_status': [],    # Records MPC status at each step
             }
     
-
-    def log_telemetry(self):
+    # use _ before method name to indicate it's intended for internal use only.
+    def _log_telemetry(self):
         """
         Records the current physical state, connection status, and control inputs
         for all satellites in the constellation.
@@ -50,7 +52,8 @@ class Simulation:
             self.telemetry[sat.id]['trailing_link_active'].append(sat.trailingConnection)
             self.telemetry[sat.id]['solver_status'].append(status)
 
-    def step(self):
+    # use _ before method name to indicate it's intended for internal use only.
+    def _step(self):
         """
         Advances simulation by one time step
         """
@@ -64,20 +67,18 @@ class Simulation:
         self.constellation.check_crosslinks()
         
         # Record new states in the telemetry database
-        self.log_telemetry()
+        self._log_telemetry()
 
     def run(self):
         """
-        Runs the simulation for the specified duration
+        Runs the simulation for the specified duration_s
         """
         print("Starting simulation (Step 0 - compiling CVXPY solver lazy structures)...", flush=True)
-        for t in self.timeVector:
-            # Print simulation progress every hour
-            if t > 0 and t % 100.0 == 0:
-                print(f" * sim time: {int(t)} s", flush=True)
-            self.step()
+        # Use tqdm for a progress bar during the simulation run.
+        for t in tqdm(self.timeVector):
+            self._step()
 
         # Convert lists to numpy arrays for easier post-processing
-        for sat_id in self.telemetry:
+        for sat_id in tqdm(self.telemetry):
             for key in self.telemetry[sat_id]:
                 self.telemetry[sat_id][key] = np.array(self.telemetry[sat_id][key])

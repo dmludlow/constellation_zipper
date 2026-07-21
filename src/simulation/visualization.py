@@ -85,7 +85,7 @@ def see_spacing_plots(simulation):
     dt = simulation.dt
 
     # Get orbit geometry
-    r_earth = config.EARTH_EQUATORIAL_RADIUS
+    r_earth = config.EARTH_EQUATORIAL_RADIUS_M
     r_orbit = r_earth + 350000.0
     pos_sat0 = telemetry[sat_ids[0]]['r']
     if len(pos_sat0) > 0:
@@ -128,7 +128,7 @@ def see_spacing_plots(simulation):
         unperturbed_pos[sat_id] = np.zeros((n_steps, 3))
         r_temp = telemetry[sat_id]['r'][0].copy()
         v_temp = telemetry[sat_id]['v'][0].copy()
-        mass = config.SATELLITE_MASS
+        mass = config.SATELLITE_MASS_KG
         for step_idx in range(n_steps):
             unperturbed_pos[sat_id][step_idx] = r_temp
             r_temp, v_temp = propogate_orbit_rk4(r_temp, v_temp, mass, np.zeros(3), dt)
@@ -214,8 +214,8 @@ def see_spacing_plots(simulation):
         # Plot rocket trajectory relative to fleet center
         ax1.plot(time_hr, rocket_rel_pos_km, color='#FF5252', linestyle='-', lw=1.8, label="Rocket Path")
         # Shade safety corridor
-        ax1.fill_between(time_hr, rocket_rel_pos_km - config.SAFETY_DISTANCE/1000.0, 
-                         rocket_rel_pos_km + config.SAFETY_DISTANCE/1000.0, 
+        ax1.fill_between(time_hr, rocket_rel_pos_km - config.SAFETY_DISTANCE_M/1000.0, 
+                         rocket_rel_pos_km + config.SAFETY_DISTANCE_M/1000.0, 
                          color='red', alpha=0.08, label="Keep-Out Zone (100km)")
         # Zoom Y-axis on the crossing corridor
         y_cross = rocket_rel_pos_km[cross_step]
@@ -241,8 +241,8 @@ def see_spacing_plots(simulation):
     
     ax3.fill_between(time_hr, min_thrust_fleet, max_thrust_fleet, color='#00E5FF', alpha=0.2, label="Thrust Envelope")
     ax3.plot(time_hr, mean_thrust_fleet, color='#00E5FF', lw=1.2, linestyle='-', label="Fleet Mean")
-    ax3.axhline(config.MAX_THRUST, color='crimson', linestyle=':', alpha=0.5, lw=1)
-    ax3.axhline(-config.MAX_THRUST, color='crimson', linestyle=':', alpha=0.5, lw=1)
+    ax3.axhline(config.MAX_THRUST_N, color='crimson', linestyle=':', alpha=0.5, lw=1)
+    ax3.axhline(-config.MAX_THRUST_N, color='crimson', linestyle=':', alpha=0.5, lw=1)
     ax3.set_xlabel("Time [hours]", color='#CCCCCC')
     ax3.legend(loc="upper right", framealpha=0.2, fontsize=8)
 
@@ -251,7 +251,7 @@ def see_spacing_plots(simulation):
     style_axis(ax4, "Fleet Safety Margin (Distance to Rocket)", "Relative Separation [km]")
     if has_rocket:
         ax4.plot(time_hr, fleet_min_rocket_dist, color='#00E676', lw=1.8, label="Closest Satellite")
-        safety_floor = config.SAFETY_DISTANCE / 1000.0
+        safety_floor = config.SAFETY_DISTANCE_M / 1000.0
         ax4.axhline(safety_floor, color='#FF1744', linestyle='--', alpha=0.9, lw=1.5, label=f"Safety Floor ({int(safety_floor)} km)")
         ax4.legend(loc="upper right", framealpha=0.2, fontsize=8)
         ax4.set_yscale('log')
@@ -298,8 +298,8 @@ def print_summary_metrics(simulation):
     total_gimbal_violations = 0
     total_safety_violations = 0
     
-    gimbal_limit_deg = np.rad2deg(config.CROSSLINK_GIMBAL_RANGE)
-    safety_distance_km = config.SAFETY_DISTANCE / 1000.0
+    gimbal_limit_deg = np.rad2deg(config.CROSSLINK_GIMBAL_RANGE_RAD)
+    safety_distance_km = config.SAFETY_DISTANCE_M / 1000.0
 
     # Determine rocket properties
     has_rocket = False
@@ -320,7 +320,7 @@ def print_summary_metrics(simulation):
         last_solve_time = -9999.0
         
         for step_idx, t in enumerate(times):
-            if t == 0.0 or (t - last_solve_time) >= config.MPC_TIME_STEP:
+            if t == 0.0 or (t - last_solve_time) >= config.MPC_TIME_STEP_S:
                 actual_solves += 1
                 status = statuses[step_idx]
                 if status in ["optimal", "optimal_inaccurate"]:

@@ -38,13 +38,13 @@ class Satellite:
     applied_thrust: np.ndarray               # Cached thrust applied during the step
 
 
-    def __init__(self, id: int, mass: float, altitude: float, longitude: float):
+    def __init__(self, id: int, mass: float, altitude_m: float, longitude: float):
         """
         Constructor for a basic satellite with default properties:
 
         Inputs: 
         id: Unique identifier for the satellite
-        altitude: Altitude of the satellite in meters above Earth's surface
+        altitude_m: Altitude of the satellite in meters above Earth's surface
         longitude: Initial longitude of the satellite in degrees
             
         Default properties:
@@ -52,11 +52,11 @@ class Satellite:
         default crosslink gimbal range of 10 degrees
         """
         self.id = id
-        self.mass = config.SATELLITE_MASS
-        self.positionECI, self.velocityECI = generate_orbit(altitude, longitude)  
+        self.mass = config.SATELLITE_MASS_KG
+        self.positionECI, self.velocityECI = generate_orbit(altitude_m, longitude)  
         self.time = 0.0                                 # Initial time
         self.crosslinkGimbalRange = np.radians(10)  # 10 degree gimbal range
-        self.thruster = Thruster(max_thrust = config.MAX_THRUST)  # Default max thrust of 0.1 N
+        self.thruster = Thruster(MAX_THRUST_N = config.MAX_THRUST_N)  # Default max thrust of 0.1 N
         self.controller = Controller(self.positionECI.copy(), self.velocityECI.copy())
         self.leading_link = None
         self.trailing_link = None
@@ -80,7 +80,7 @@ class Satellite:
             pos=self.positionECI,
             vel=self.velocityECI,
             mass=self.mass,
-            max_thrust=self.thruster.max_thrust
+            MAX_THRUST_N=self.thruster.MAX_THRUST_N
         )
 
         # Propogate vehicle

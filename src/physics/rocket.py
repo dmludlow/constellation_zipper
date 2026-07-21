@@ -17,12 +17,12 @@ class Rocket:
         GTO Perigee: 200 km
 
         Parameters:
-        intersect_time (float): The time at which the rocket intersects the orbital ring (in seconds).
+        INTERSECT_TIME_S (float): The time at which the rocket intersects the orbital ring (in seconds).
         """
         # Simulate the change from a lower holding orbit to a GTO
 
         # Generate data for 4 hours before and after GTO brun
-        time_vector = np.arange(0, config.SIMULATION_DURATION, config.SIMULATION_TIME_STEP)
+        time_vector = np.arange(0, config.SIMULATION_DURATION_S, config.SIMULATION_TIME_STEP_S)
 
         # Initial LEO holding orbit
         LEO_pos_eci, LEO_vel_eci = orbit.generate_orbit(altitude=200000, degrees_long=0.0)
@@ -45,7 +45,7 @@ class Rocket:
                                                      curr_vel, 
                                                      mass=1,        # irrelevant mass, avoiding division by zero
                                                      commandedForce = np.zeros(3),    # no thrust
-                                                     dt = config.SIMULATION_TIME_STEP)
+                                                     dt = config.SIMULATION_TIME_STEP_S)
 
             curr_pos = pos
             curr_vel = vel
@@ -62,13 +62,13 @@ class Rocket:
         Burns into a new GTO orbit
         Returns the new position and velocity after burn
         """
-        apogee_altitude = 35786000  # meters
-        perigee_altitude = np.linalg.norm(last_pos_eci)  # meters
+        apogee_altitude_m = 35786000  # meters
+        perigee_altitude_m = np.linalg.norm(last_pos_eci)  # meters
 
         # determine new velocity for GTO orbit at perigee
         mu = config.EARTH_GRAVITATIONAL_PARAMETER
-        r_p = perigee_altitude
-        r_a = config.EARTH_EQUATORIAL_RADIUS + apogee_altitude
+        r_p = perigee_altitude_m
+        r_a = config.EARTH_EQUATORIAL_RADIUS_M + apogee_altitude_m
         v_gto = np.sqrt((2.0 * mu * r_a) / (r_p * (r_p + r_a)))
         
         # scale and repoint velocity vector
@@ -80,13 +80,9 @@ class Rocket:
                                                      new_vel_eci, 
                                                      mass=1,        # irrelevant mass, avoiding division by zero
                                                      commandedForce = np.zeros(3),    # no thrust
-                                                     dt = config.SIMULATION_TIME_STEP)
+                                                     dt = config.SIMULATION_TIME_STEP_S)
 
         return new_pos, new_vel
         
 
-    def get_trajectory(self) -> Trajectory:
-        """
-        Returns the trajectory of the rocket.
-        """
-        return self.trajectory
+    # in python you can usually just index into the trajectory object directly

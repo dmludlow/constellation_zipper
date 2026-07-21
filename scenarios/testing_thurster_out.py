@@ -12,14 +12,14 @@ import src.simulation.config as config
 from src.simulation.visualization import see_globe, save_telemetry_to_csv, see_spacing_plots, see_ring_animation, print_summary_metrics
 
 # Configure restrictive gimbal limit in the config module before initialization
-config.CROSSLINK_GIMBAL_RANGE = np.deg2rad(13.0)
+config.CROSSLINK_GIMBAL_RANGE_RAD = np.deg2rad(13.0)
 
 # Create 18 satellites at 500 km altitude
 sampleConstellation = Constellation(number_of_satellites=18, altitude=500000)
 
 # Configure the thruster out scenario on Sat 5
 sat5 = sampleConstellation.satellites[5]
-sat5.thruster.max_thrust = 0.0  # Engine failure
+sat5.thruster.MAX_THRUST_N = 0.0  # Engine failure
 vel_unit = sat5.velocityECI / np.linalg.norm(sat5.velocityECI)
 sat5.velocityECI -= 2.0 * vel_unit  # Inject 2 m/s drift velocity deficit
 
@@ -30,8 +30,8 @@ print(f"Configured all crosslinks with a restrictive gimbal limit of 13.0 degree
 # Set up simulation
 samepleSimulation = Simulation(
     constellation=sampleConstellation, 
-    duration_sec=config.SIMULATION_DURATION, 
-    dt=config.SIMULATION_TIME_STEP
+    duration_sec=config.SIMULATION_DURATION_S, 
+    dt=config.SIMULATION_TIME_STEP_S
 )
 
 print(f"Running simulation for {samepleSimulation.duration} seconds with dt = {samepleSimulation.dt} seconds...")

@@ -7,18 +7,19 @@ class Constellation:
 
     satellites: list[Satellite] # List of all satellites in the constellation
 
-    def __init__(self, number_of_satellites: int, altitude: float):
+    def __init__(self, number_of_satellites: int, altitude_m: float):
         """
-        Initializes a Constellation of specified number of satellites in a circular equitorial orbit at a given altitude.
+        Initializes a Constellation of specified number of satellites in a circular equitorial orbit at a given altitude_m.
         """
 
-        self.satellites = self.generate_satellites(number_of_satellites, altitude)
+        self.satellites = self.generate_satellites(number_of_satellites, altitude_m)
 
 
     #TODO
-    def generate_satellites(self, number_of_satellites, altitude) -> list[Satellite]:
+    # should probably include mass as an arg with a default here, something like this:
+    def generate_satellites(self, number_of_satellites, altitude_m, mass = 500) -> list[Satellite]:
         """
-        Generates a list of satellites in a circular equitorial orbit at a given altitude with equal spacing.
+        Generates a list of satellites in a circular equitorial orbit at a given altitude_m with equal spacing.
 
         Currently assumes standard mass of 500 kg)
         """
@@ -27,7 +28,7 @@ class Constellation:
         for i in range(number_of_satellites):
             print(f"  -> Compiling Controller for Satellite {i}...", flush=True)
             degrees_long = (360/number_of_satellites) * i  # Evenly spaced longitudes
-            sat = Satellite(id = i, mass = 500, altitude = altitude, longitude = degrees_long)
+            sat = Satellite(id = i, mass = mass, altitude_m = altitude_m, longitude = degrees_long)
 
             satellite.append(sat)
 

@@ -9,12 +9,12 @@ class Thruster:
     This class defines an electric propulsion thurster for a satellite.
     """
     
-    max_thrust: float  # Maximum thrust in Newtons
+    MAX_THRUST_N: float  # Maximum thrust in Newtons
 
-    def __init__(self, max_thrust: float):
-        self.max_thrust = max_thrust
+    def __init__(self, MAX_THRUST_N: float):
+        self.MAX_THRUST_N = MAX_THRUST_N
 
     # ---- Used for testing before controller is implemented ----
     def thrust_prograde(self, satellite: "Satellite") -> np.ndarray:
         velocity_unit_vector = satellite.velocityECI / np.linalg.norm(satellite.velocityECI)
-        return self.max_thrust * velocity_unit_vector
+        return self.MAX_THRUST_N * velocity_unit_vector

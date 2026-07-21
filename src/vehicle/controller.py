@@ -16,9 +16,9 @@ class Controller:
     """
 
     # MPC parameters shared by all controller instances
-    N: int = config.MPC_HORIZON_LENGTH                             # MPC horizon length
-    dt: float = config.MPC_TIME_STEP                               # Time step for the MPC in seconds
-    safety_distance: float = config.SAFETY_DISTANCE                # Minimum distance to maintain from other satellites in meters
+    N: int = config.MPC_HORIZON_LENGTH_S                             # MPC horizon length
+    dt: float = config.MPC_TIME_STEP_S                               # Time step for the MPC in seconds
+    safety_distance: float = config.SAFETY_DISTANCE_M                # Minimum distance to maintain from other satellites in meters
 
     # Controller specific
     initialPosition: np.ndarray
@@ -105,10 +105,10 @@ class Controller:
             self.u <= self.max_thrust_param
         ]
 
-        phi_max = config.CROSSLINK_GIMBAL_RANGE
+        phi_max = config.CROSSLINK_GIMBAL_RANGE_RAD
         r_orbit = np.linalg.norm(x0)
         max_along_track = 2 * r_orbit * np.sin(phi_max)
-        min_along_track = config.SAFETY_DISTANCE
+        min_along_track = config.SAFETY_DISTANCE_M
 
         # Add crosslink constraints to the pre-compiled problem
         for k in range(1, self.N + 1):
@@ -198,7 +198,7 @@ class Controller:
         pass
             
 
-    def solve_mpc(self, time: float, pos: np.ndarray, vel: np.ndarray, mass: float, max_thrust: float) -> np.ndarray:
+    def solve_mpc(self, time: float, pos: np.ndarray, vel: np.ndarray, mass: float, MAX_THRUST_N: float) -> np.ndarray:
         """
         Solves the MPC optimization problem using the local state and parameters.
         Returns the computed control force in the ECI frame.
@@ -219,7 +219,7 @@ class Controller:
 
             # Set parameters for pre-compiled problem
             self.x0_param.value = x0
-            self.max_thrust_param.value = max_thrust
+            self.max_thrust_param.value = MAX_THRUST_N
 
             # Default: fill neighbor parameters with their nominal relative positions
             r_orbit = np.linalg.norm(ref_pos_eci)
@@ -337,18 +337,18 @@ class Controller:
             #     cost += state_cost + fuel_cost
             # cost += cp.quad_form(x[self.N], Q)           
             # constraints = [                                                                                                                                  
-            #     u >= -max_thrust,                                                                                                                            
-            #     u <= max_thrust                                                                                                                              
+            #     u >= -MAX_THRUST_N,                                                                                                                            
+            #     u <= MAX_THRUST_N                                                                                                                              
             # ]
             # for neighborID, neighborTraj in self.neighboringSatTrajectories.items():
             #     if neighborTraj is not None:
             #         neighbor_pos_0_eci, neighbor_vel_0_eci= neighborTraj.get_state_at_time(time)
             #         neighbor_pos_0_lvlh, neighbor_vel_0_lvlh = orbit.eci_to_lvlh(ref_pos_eci, ref_vel_eci, neighbor_pos_0_eci, neighbor_vel_0_eci)
             #         isLeading = neighbor_pos_0_lvlh[1] > 0
-            #         phi_max = config.CROSSLINK_GIMBAL_RANGE                                                                            
+            #         phi_max = config.CROSSLINK_GIMBAL_RANGE_RAD                                                                            
             #         r_orbit = np.linalg.norm(ref_pos_eci)                                                                                                  
             #         max_along_track = 2 * r_orbit * np.sin(phi_max)
-            #         min_along_track = config.SAFETY_DISTANCE
+            #         min_along_track = config.SAFETY_DISTANCE_M
             #         for k in range(4, self.N + 1, 4):
             #             next_time = time + k*self.dt
             #             ref_k_eci, v_ref_k_eci = self.get_nominal_state(next_time)

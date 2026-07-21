@@ -2,23 +2,26 @@ from typing import TYPE_CHECKING
 import numpy as np
 import src.simulation.config as config
 
+# what is going on here, there usually is a better way to do this.
+# Why not just import the class directly?
+# Oh I see circular import things.  Usually this means you are passing too much info around.
 if TYPE_CHECKING:
     from src.vehicle.satellite import Satellite
 
-def generate_orbit(altitude: float, degrees_long: float) -> tuple[np.ndarray, np.ndarray]:
+def generate_orbit(altitude_m: float, degrees_long: float) -> tuple[np.ndarray, np.ndarray]:
     """
-    Generates initial ECI position and velocity for a satellite in a circular equatorial orbit at a given altitude and initial longitude.
+    Generates initial ECI position and velocity for a satellite in a circular equatorial orbit at a given altitude_m and initial longitude.
     """
     # Convert degrees to radians
-    theta = np.radians(degrees_long)
+    theta_rad = np.radians(degrees_long)
 
     # Calculate radius from Earth's center
-    r = config.EARTH_EQUATORIAL_RADIUS + altitude
+    r = config.EARTH_EQUATORIAL_RADIUS_M + altitude_m
 
     # Position in ECI frame (x, y, z)
     pos_eci = np.array([
-        r * np.cos(theta),  # x
-        r * np.sin(theta),  # y
+        r * np.cos(theta_rad),  # x
+        r * np.sin(theta_rad),  # y
         0.0                 # z (equatorial orbit)
     ])
 
@@ -27,8 +30,8 @@ def generate_orbit(altitude: float, degrees_long: float) -> tuple[np.ndarray, np
 
     # Velocity in ECI frame (perpendicular to position vector for circular orbit)
     vel_eci = np.array([
-        -v_mag * np.sin(theta),  # vx
-         v_mag * np.cos(theta),  # vy
+        -v_mag * np.sin(theta_rad),  # vx
+         v_mag * np.cos(theta_rad),  # vy
          0.0                     # vz (equatorial orbit)
     ])
 
@@ -49,7 +52,7 @@ def orbit_derivatives(pos: np.ndarray, vel: np.ndarray, mass: float, commandedFo
 
     # J2 
     z = pos[2]
-    j2_factor = (1.5 * config.EARTH_J2_COEFFICIENT * config.EARTH_GRAVITATIONAL_PARAMETER * config.EARTH_EQUATORIAL_RADIUS**2) / (r_norm**5)
+    j2_factor = (1.5 * config.EARTH_J2_COEFFICIENT * config.EARTH_GRAVITATIONAL_PARAMETER * config.EARTH_EQUATORIAL_RADIUS_M**2) / (r_norm**5)
     accel_j2 = np.array([
         j2_factor * pos[0] * (5.0 * (z**2) / (r_norm**2) - 1.0),
         j2_factor * pos[1] * (5.0 * (z**2) / (r_norm**2) - 1.0),
@@ -77,7 +80,9 @@ def propogate_orbit_rk4(pos: np.ndarray, vel: np.ndarray, mass: float, commanded
     vel_next = vel + (dt / 6.0) * (k1_vel + 2.0 * k2_vel + 2.0 * k3_vel + k4_vel)
     return pos_next, vel_next
 
-
+# I would change this to "step_orbit" and and pass in the satellites position, vel, and mass separately.
+# This would make it more general and not require the satellite class to be imported here, can avoid circular imports.
+# It would also make it easier to test.
 def step_sat_orbit(satellite: "Satellite", commandedForce: np.ndarray, dt: float):
     """
     Propagates the physical orbit of a Satellite object.
@@ -125,7 +130,7 @@ def eci_to_cw_matrix(pos_ref: np.ndarray, vel_ref: np.ndarray) -> tuple[np.ndarr
         [0.0],
         [0.0],
         [0.0],
-        [1.0 / config.SATELLITE_MASS]
+        [1.0 / config.SATELLITE_MASS_KG]
     ])
     
     return A, B
@@ -163,10 +168,10 @@ def eci_to_lvlh(pos_ref: np.ndarray, vel_ref: np.ndarray, pos_query: np.ndarray,
     r_unit = pos_ref / np.linalg.norm(pos_ref)
     h_vec = np.cross(pos_ref, vel_ref)
     h_unit = h_vec / np.linalg.norm(h_vec)
-    theta_unit = np.cross(h_unit, r_unit)  # Along-track direction
+    theta_rad_unit = np.cross(h_unit, r_unit)  # Along-track direction
     
     # Rotation matrix from ECI to LVLH
-    R_eci_to_lvlh = np.vstack([r_unit, theta_unit, h_unit])
+    R_eci_to_lvlh = np.vstack([r_unit, theta_rad_unit, h_unit])
     
     # Relative Position
     dp_eci = pos_query - pos_ref
@@ -188,9 +193,9 @@ def lvlh_to_eci_force(pos_ref: np.ndarray, vel_ref: np.ndarray, force_lvlh: np.n
     r_unit = pos_ref / np.linalg.norm(pos_ref)
     h_vec = np.cross(pos_ref, vel_ref)
     h_unit = h_vec / np.linalg.norm(h_vec)
-    theta_unit = np.cross(h_unit, r_unit)
+    theta_rad_unit = np.cross(h_unit, r_unit)
     
     # R_eci_to_lvlh transposed is the inverse rotation (LVLH to ECI)
-    R_lvlh_to_eci = np.vstack([r_unit, theta_unit, h_unit]).T
+    R_lvlh_to_eci = np.vstack([r_unit, theta_rad_unit, h_unit]).T
     return R_lvlh_to_eci @ force_lvlh
 

@@ -19,14 +19,14 @@ from src.physics.rocket import Rocket
 from src.simulation.visualization import save_telemetry_to_csv, see_spacing_plots, print_summary_metrics
 
 # Configure restrictive gimbal limit in the config module before initialization
-config.CROSSLINK_GIMBAL_RANGE = np.deg2rad(20.0)
+config.CROSSLINK_GIMBAL_RANGE_RAD = np.deg2rad(20.0)
 
 # Create 80 satellites at 350 km altitude
 sampleConstellation = Constellation(number_of_satellites=80, altitude=350000)
 
 # Create the rocket GTO trajectory (burn at 4 hours / 14,400 seconds)
 rocket = Rocket(GTO_burn_time=14400.0)
-rocket_traj = rocket.get_trajectory()
+rocket_traj = rocket.trajectory  # Get the trajectory object for the rocket directly
 
 # Configure the rocket trajectory as a foreign obstacle for all satellites
 for sat in sampleConstellation.satellites:
@@ -39,8 +39,8 @@ print(f"Assigning rocket trajectory to all satellite controllers.")
 # Set up simulation for 6 hours (21600 seconds)
 samepleSimulation = Simulation(
     constellation=sampleConstellation, 
-    duration_sec=config.SIMULATION_DURATION, 
-    dt=config.SIMULATION_TIME_STEP
+    duration_sec=config.SIMULATION_DURATION_S, 
+    dt=config.SIMULATION_TIME_STEP_S
 )
 
 print(f"Running simulation for {samepleSimulation.duration} seconds with dt = {samepleSimulation.dt} seconds...")

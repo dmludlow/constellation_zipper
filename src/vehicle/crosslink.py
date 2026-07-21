@@ -13,7 +13,7 @@ class Crosslink:
 
     sender: "Satellite"
     receiver: "Satellite"
-    gimbal_range: float = config.CROSSLINK_GIMBAL_RANGE
+    gimbal_range: float = config.CROSSLINK_GIMBAL_RANGE_RAD
     connection_active: bool = False
 
     def __init__(self, sender: "Satellite", receiver: "Satellite"):

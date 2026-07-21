@@ -6,26 +6,26 @@ Physical constants used in the simulation.
 
 # --- Physical Constants (Earth) ---
 EARTH_GRAVITATIONAL_PARAMETER = 3.986004418e14       # m^3/s^2
-EARTH_EQUATORIAL_RADIUS = 6378137.0                  # meters
+EARTH_EQUATORIAL_RADIUS_M = 6378137.0                  # meters
 EARTH_J2_COEFFICIENT = 1.08262668e-3                 # Dimensionless
 
 # --- Satelite Properties ---
-SATELLITE_MASS = 500                                 # kg
-MAX_THRUST = 0.2                                     # N
+SATELLITE_MASS_KG = 500                                 # kg
+MAX_THRUST_N = 0.2                                     # N
 
 # --- Simulation Properties ---
-SIMULATION_TIME_STEP = 10.0                            # seconds
-SIMULATION_DURATION = 3600.0 * 6                     # seconds
+SIMULATION_TIME_STEP_S = 10.0                            # seconds
+SIMULATION_DURATION_S = 3600.0 * 6                     # seconds
 
-INTERSECT_TIME = 3600 * 6                       # hours into simulation
+INTERSECT_TIME_S = 3600 * 6                       # hours into simulation
 
 # --- Crosslink Properties ---
-CROSSLINK_GIMBAL_RANGE = np.deg2rad(20)          # radians
+CROSSLINK_GIMBAL_RANGE_RAD = np.deg2rad(20)          # radians
 
 # --- Controller Properties ---
-MPC_TIME_STEP = 300.0                             # seconds (5 minutes)
-MPC_HORIZON_LENGTH = 48                           # Number of steps in the MPC horizon (4 hours lookahead)
-SAFETY_DISTANCE = 100e3                           # Minimum distance to maintain from other satellites in meters
+MPC_TIME_STEP_S = 300.0                             # seconds (5 minutes)
+MPC_HORIZON_LENGTH_S = 48                           # Number of steps in the MPC horizon (4 hours lookahead)
+SAFETY_DISTANCE_M = 100e3                           # Minimum distance to maintain from other satellites in meters
 
 # Scale factor to convert cost metrics from meters^2 to kilometers^2 (prevents OSQP ill-conditioning)
 COST_METER_TO_KM_SCALE = 1e-6

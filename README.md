@@ -72,7 +72,7 @@ Each satellite runs an independent local MPC solver formulated using **Disciplin
 * **The Feasibility Boundary**: Due to Earth's equatorial bulge (J2), orbits naturally breathe (eccentricity wiggles). Because satellites are equipped only with along-track thrusters, they cannot directly control radial breathing. If the gimbal limit is too strict (e.g. $10.5^\circ$), the radial separation wiggles exceed the pointing bounds, making the optimization problem mathematically infeasible. A moderate limit of **$13.0^\circ$** is verified to be 100% stable and feasible.
 
 ### 3. Multi-Rate Caching
-The physical constellation simulation propagates at a time step of $10\text{ s}$ (`SIMULATION_TIME_STEP`). However, the MPC optimization is executed at a coarser rate of $5\text{ minutes}$ (`MPC_TIME_STEP`). On intermediate simulation steps, cached optimal control forces are rotated from the nominal reference frame to the current ECI frame, reducing solver calls by 30x without losing tracking fidelity.
+The physical constellation simulation propagates at a time step of $10\text{ s}$ (`SIMULATION_TIME_STEP_S`). However, the MPC optimization is executed at a coarser rate of $5\text{ minutes}$ (`MPC_TIME_STEP_S`). On intermediate simulation steps, cached optimal control forces are rotated from the nominal reference frame to the current ECI frame, reducing solver calls by 30x without losing tracking fidelity.
 
 ---
 
@@ -85,7 +85,7 @@ python3 main.py
 ```
 
 ### 2. Coordinated Drift / Thruster-Out Stress Test
-Runs a simulation where Sat 5 experiences a total thruster failure (`max_thrust = 0.0`) and drifts with a $-2.0\text{ m/s}$ along-track delta-V deficit under a tight $13.0^\circ$ gimbal limit. The adjacent satellites coordinate and actively adjust their orbits to keep the drifting satellite within their pointing cones.
+Runs a simulation where Sat 5 experiences a total thruster failure (`MAX_THRUST_N = 0.0`) and drifts with a $-2.0\text{ m/s}$ along-track delta-V deficit under a tight $13.0^\circ$ gimbal limit. The adjacent satellites coordinate and actively adjust their orbits to keep the drifting satellite within their pointing cones.
 ```bash
 python3 testing_thurster_out.py
 ```

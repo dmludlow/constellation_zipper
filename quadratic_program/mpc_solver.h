@@ -12,7 +12,7 @@ template <int N = MPC_HORIZON>
 
 class EMBEDDED_MPC_SOLVER {
     public:
-        double max_thrust;              // Max thrust (N)
+        double MAX_THRUST_N;              // Max thrust (N)
         double rho;                     // Penalty param - 
         double sigma;                   // Regularization param - for numerical stability
 
@@ -35,7 +35,7 @@ class EMBEDDED_MPC_SOLVER {
 
         // Constructor
         EMBEDDED_MPC_SOLVER(double max_thrust_in, double rho_in, double sigma_in){
-            max_thrust = max_thrust_in;
+            MAX_THRUST_N = max_thrust_in;
             rho = rho_in;
             sigma = sigma_in;
 
@@ -84,7 +84,7 @@ class EMBEDDED_MPC_SOLVER {
 
             // --- ADMM iterations ---
             double prev_u[N];
-            
+
         }
 
 };
