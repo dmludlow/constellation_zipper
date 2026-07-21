@@ -1,6 +1,6 @@
 from src.vehicle.controller import Controller
 from src.vehicle.thruster import Thruster
-import src.config as config
+import src.simulation.config as config
 from src.physics.orbit import step_sat_orbit, generate_orbit                                                                                                                          
 
 from typing import TYPE_CHECKING

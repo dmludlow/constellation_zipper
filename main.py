@@ -5,7 +5,7 @@ Sample for now, just need to proove that orbits and attitude propogate correctly
 
 from src.constellation import Constellation
 from src.simulation.simulation import Simulation
-import src.config as config
+import src.simulation.config as config
 from src.simulation.visualization import see_globe, save_telemetry_to_csv, see_spacing_plots, see_ring_animation, print_summary_metrics
 
 # 10 Sats in 500 km orbit

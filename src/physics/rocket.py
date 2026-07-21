@@ -4,7 +4,7 @@ Object used to configure the intersection between a rocket launch and an orbital
 
 from src.physics.trajectory import Trajectory
 from src.physics import orbit
-import src.config as config
+import src.simulation.config as config
 
 import numpy as np
 

@@ -1,6 +1,6 @@
 from typing import TYPE_CHECKING
 import numpy as np
-import src.config as config
+import src.simulation.config as config
 
 if TYPE_CHECKING:
     from src.vehicle.satellite import Satellite

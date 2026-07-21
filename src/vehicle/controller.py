@@ -1,4 +1,4 @@
-import src.config as config
+import src.simulation.config as config
 from src.physics.trajectory import Trajectory
 import src.physics.orbit as orbit
 from typing import Optional
@@ -15,12 +15,12 @@ class Controller:
     Implements a distributed model predictive control algorithm to open a slot in a satellite constellation
     """
 
-    # MPC parameters (Immutable configuration properties)
+    # MPC parameters shared by all controller instances
     N: int = config.MPC_HORIZON_LENGTH                             # MPC horizon length
     dt: float = config.MPC_TIME_STEP                               # Time step for the MPC in seconds
     safety_distance: float = config.SAFETY_DISTANCE                # Minimum distance to maintain from other satellites in meters
 
-    # Instance variable type annotations (actual variables are allocated in __init__)
+    # Controller specific
     initialPosition: np.ndarray
     initialVelocity: np.ndarray
     time: float
@@ -39,7 +39,7 @@ class Controller:
         self.last_mpc_run_time = -9999.0  # Time of last MPC optimization execution
         self.stored_controls = None       # Array to cache calculated optimal control inputs
         
-        # Instance-specific allocations to prevent shared class-level mutable defaults
+        # Prevent shared class-level mutable defaults
         self.computedControl = np.zeros(3)
         self.computedTrajectory = None
         self.neighboringSatTrajectories = {}
@@ -53,6 +53,11 @@ class Controller:
         self.leading_pos_param = cp.Parameter((self.N, 2))
         self.trailing_pos_param = cp.Parameter((self.N, 2))
 
+        # Parameters for rocket avoidance tangent wall (Lists of parameters to maintain DPP compliance)
+        self.foreign_n_param_x = [cp.Parameter() for _ in range(self.N)]
+        self.foreign_n_param_y = [cp.Parameter() for _ in range(self.N)]
+        self.foreign_dist_param = [cp.Parameter() for _ in range(self.N)]
+
         #  Get physics
         A, B = orbit.eci_to_cw_matrix(x0, v0)
         Ad, Bd = orbit.discretize_CW(A, B, self.dt)
@@ -60,9 +65,11 @@ class Controller:
         self.Bd = Bd
         Bd_flat = Bd.flatten()
 
-        # State rollout
+        # State rollout (separate into forced response and full state for DPP compliance)
+        x_forced = [np.zeros(4)]
         x_expr = [self.x0_param]
         for k in range(self.N):
+            x_forced.append(Ad @ x_forced[k] + Bd_flat * self.u[k])
             x_expr.append(Ad @ x_expr[k] + Bd_flat * self.u[k])
 
         # Cost function (sum of squares formulation for DPP compliance)
@@ -121,6 +128,12 @@ class Controller:
             constraints.append((-dy_trail) * np.sin(phi_max) + s_trail_pointing[idx, 1] >= -dx_trail * np.cos(phi_max))                                  
             constraints.append(-dy_trail - s_trail_dist[idx] <= max_along_track)                                                                         
             constraints.append(-dy_trail >= min_along_track) # Hard safety limit
+
+            # Object avoidance constraints (DPP-compliant scalar products)
+            constraints.append(
+                self.foreign_n_param_x[idx] * x_forced[k][0] +
+                self.foreign_n_param_y[idx] * x_forced[k][1] >= self.foreign_dist_param[idx]
+            )
 
         # Add equal spacing goal
         spacing_weight = config.MPC_W_MATRIX
@@ -242,6 +255,46 @@ class Controller:
                             
             self.leading_pos_param.value = leading_val
             self.trailing_pos_param.value = trailing_val
+
+            # Obstacle avoidance
+            foreign_n_val = np.zeros((self.N, 2))                                                                                                        
+            foreign_dist_val = np.zeros(self.N)
+            foreign_dist_val[:] = -1e6 # default far away
+
+            if self.foreignTrajectory is not None:
+                safety_dist = self.safety_distance
+                x_free = x0.copy()
+                for k in range(1, self.N + 1):
+                    idx = k - 1
+                    next_time = time + k * self.dt
+                    x_free = self.Ad @ x_free
+                    # Grab nominal position (close enough approximation to maintain convexity)
+                    ref_pos_k_eci, ref_vel_k_eci = self.get_nominal_state(next_time)
+
+                    # foreign object position
+                    foreign_pos_k_eci, foreign_vel_k_eci = self.foreignTrajectory.get_state_at_time(next_time)
+
+                    # create lvlh frame
+                    foreign_pos_k_lvlh, _ = orbit.eci_to_lvlh(ref_pos_k_eci, ref_vel_k_eci, foreign_pos_k_eci, foreign_vel_k_eci)
+                    x_r = foreign_pos_k_lvlh[0]
+                    y_r = foreign_pos_k_lvlh[1]
+                    
+                    # Vector from rocket to free response position
+                    dx = x_free[0] - x_r
+                    dy = x_free[1] - y_r
+                    d_free = np.sqrt(dx**2 + dy**2)
+
+                    if d_free > 0:
+                        foreign_n_val[idx, 0] = dx / d_free
+                        foreign_n_val[idx, 1] = dy / d_free
+                        foreign_dist_val[idx] = safety_dist - d_free
+
+            # Update each parameter in the lists to maintain DPP compliance
+            for idx in range(self.N):
+                self.foreign_n_param_x[idx].value = foreign_n_val[idx, 0]
+                self.foreign_n_param_y[idx].value = foreign_n_val[idx, 1]
+                self.foreign_dist_param[idx].value = foreign_dist_val[idx]
+
             
             self.prob.solve(
                 solver=cp.OSQP, 
@@ -256,7 +309,12 @@ class Controller:
             if success:                                                                                             
                 self.stored_controls = self.u.value                                                                                                                          
             else:                                                                                                                                            
-                self.stored_controls = np.zeros(self.N) # Fallback to zero thrust on failure 
+                if self.stored_controls is not None:
+                    # Shift previous plan: roll elements left, append 0 at the end
+                    self.stored_controls = np.roll(self.stored_controls, -1)
+                    self.stored_controls[-1] = 0.0
+                else:
+                    self.stored_controls = np.zeros(self.N)
                 
             # Unroll and save the trajectory plan
             self.computedTrajectory = self.unroll_trajectory(time, self.x_expr, success)
